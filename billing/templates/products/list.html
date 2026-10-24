@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+<div class="row"><h1>Products</h1><a class="btn" href="{{ url_for('billing.product_form') }}">New product</a></div>
+<div class="card">
+  <table>
+    <tr><th>Name</th><th>Barcode</th><th class="num">Price</th><th></th></tr>
+    {% for p in products %}
+    <tr><td>{{ p.name }}</td><td><code>{{ p.barcode or '' }}</code></td><td class="num">{{ p.unit_price|money }}</td>
+        <td><a href="{{ url_for('billing.product_form', product_id=p.id) }}">Edit</a></td></tr>
+    {% else %}
+    <tr><td colspan="4">No products yet.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

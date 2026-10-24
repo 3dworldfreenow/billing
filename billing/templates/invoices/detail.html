@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}{{ invoice.number }}{% endblock %}
+{% set editable = invoice.status == 'draft' %}
+{% block content %}
+<div class="card">
+  <div class="row" style="justify-content: space-between">
+    <h1>{{ invoice.number }} <span class="status {{ invoice.status }}">{{ invoice.status }}</span></h1>
+    <div class="no-print row">
+      <form method="post" action="{{ url_for('billing.invoice_status', invoice_id=invoice.id) }}" class="row">
+        <select name="status">{% for s in statuses %}<option {{ 'selected' if s == invoice.status }}>{{ s }}</option>{% endfor %}</select>
+        <button>Update status</button>
+      </form>
+      <button onclick="window.print()">Print</button>
+    </div>
+  </div>
+  <p><strong>Bill to:</strong> {{ invoice.customer.name }}<br>
+     {% if invoice.customer.address %}{{ invoice.customer.address }}<br>{% endif %}
+     {{ invoice.customer.email or '' }}</p>
+  <p>Issued {{ invoice.issue_date }} · Due {{ invoice.due_date }}</p>
+</div>
+
+{% if editable %}
+<div class="card scan no-print">
+  <form method="post" action="{{ url_for('billing.invoice_scan', invoice_id=invoice.id) }}" id="scan-form" class="row">
+    <div>
+      <label for="barcode">Scan barcode</label>
+      <input id="barcode" name="barcode" autocomplete="off" autofocus placeholder="Scan or type, then Enter">
+    </div>
+    <button>Add</button>
+    <button type="button" id="camera-toggle">Use camera</button>
+  </form>
+  <div id="camera" style="max-width: 360px; margin-top: .75rem"></div>
+</div>
+{% endif %}
+
+<div class="card">
+  <table>
+    <tr><th>Description</th><th class="num">Qty</th><th class="num">Unit price</th><th class="num">Amount</th>{% if editable %}<th class="no-print"></th>{% endif %}</tr>
+    {% for item in invoice.items %}
+    <tr><td>{{ item.description }}</td><td class="num">{{ '%g' % item.quantity }}</td>
+        <td class="num">{{ item.unit_price|money }}</td><td class="num">{{ item.amount|money }}</td>
+        {% if editable %}<td class="no-print">
+          <form method="post" action="{{ url_for('billing.invoice_delete_item', invoice_id=invoice.id, item_id=item.id) }}">
+            <button class="link">Remove</button></form></td>{% endif %}</tr>
+    {% else %}
+    <tr><td colspan="5">No items yet.</td></tr>
+    {% endfor %}
+    <tr><td colspan="3" class="num">Subtotal</td><td class="num">{{ invoice.subtotal|money }}</td></tr>
+    <tr><td colspan="3" class="num">Tax ({{ invoice.tax_rate }}%)</td><td class="num">{{ invoice.tax|money }}</td></tr>
+    <tr><th colspan="3" class="num">Total</th><th class="num">{{ invoice.total|money }}</th></tr>
+  </table>
+  {% if invoice.notes %}<p>{{ invoice.notes }}</p>{% endif %}
+</div>
+
+{% if editable %}
+<form method="post" action="{{ url_for('billing.invoice_add_item', invoice_id=invoice.id) }}" class="card row no-print">
+  <div><label for="description">Custom item</label><input id="description" name="description" required></div>
+  <div><label for="quantity">Qty</label><input id="quantity" name="quantity" type="number" step="0.01" min="0.01" value="1" style="width: 5rem"></div>
+  <div><label for="unit_price">Unit price</label><input id="unit_price" name="unit_price" type="number" step="0.01" min="0" required style="width: 7rem"></div>
+  <button>Add item</button>
+</form>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{% if editable %}
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+  const input = document.getElementById('barcode');
+  const form = document.getElementById('scan-form');
+  // Keep the scan box focused so a hardware scanner always types into it,
+  // unless the user is working in another field.
+  document.addEventListener('click', e => {
+    if (!e.target.closest('input, select, textarea, button')) input.focus();
+  });
+
+  let scanner = null;
+  document.getElementById('camera-toggle').addEventListener('click', async e => {
+    if (scanner) { await scanner.stop(); scanner.clear(); scanner = null; e.target.textContent = 'Use camera'; return; }
+    if (!window.Html5Qrcode) { alert('Camera scanner failed to load.'); return; }
+    scanner = new Html5Qrcode('camera');
+    e.target.textContent = 'Stop camera';
+    try {
+      await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 280, height: 140 } }, code => {
+        scanner.stop().finally(() => { input.value = code; form.submit(); });
+      });
+    } catch (err) {
+      scanner = null; e.target.textContent = 'Use camera';
+      alert('Could not start camera: ' + err);
+    }
+  });
+</script>
+{% endif %}
+{% endblock %}

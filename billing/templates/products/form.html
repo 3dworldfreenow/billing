@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Edit' if product.id else 'New' }} product{% endblock %}
+{% block content %}
+<h1>{{ 'Edit' if product.id else 'New' }} product</h1>
+<form method="post" class="card">
+  <label for="name">Name</label><input id="name" name="name" value="{{ product.name or '' }}" required>
+  <label for="barcode">Barcode</label>
+  <input id="barcode" name="barcode" value="{{ product.barcode or '' }}" placeholder="Scan the product's barcode here">
+  <label for="unit_price">Unit price</label>
+  <input id="unit_price" name="unit_price" type="number" step="0.01" min="0" value="{{ product.unit_price if product.unit_price is not none else '' }}" required>
+  <p><button>Save</button></p>
+</form>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Hardware scanners press Enter after the code; don't let that submit a half-filled form.
+  document.getElementById('barcode').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('unit_price').focus(); }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Billing{% endblock %}</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; color: #222; background: #f6f7f9; }
+    nav { background: #1f3a5f; padding: .75rem 1rem; display: flex; gap: 1rem; }
+    nav a { color: #fff; text-decoration: none; font-weight: 600; }
+    main { max-width: 960px; margin: 1.5rem auto; padding: 0 1rem; }
+    .card { background: #fff; border-radius: 6px; padding: 1rem 1.25rem; margin-bottom: 1rem; box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid #e5e7eb; }
+    td.num, th.num { text-align: right; }
+    input, select, textarea, button { font: inherit; padding: .4rem .5rem; }
+    label { display: block; margin: .5rem 0 .2rem; font-weight: 600; }
+    button, .btn { background: #1f3a5f; color: #fff; border: 0; border-radius: 4px; cursor: pointer; text-decoration: none; padding: .45rem .8rem; display: inline-block; }
+    button.link { background: none; color: #b91c1c; padding: 0; }
+    .flash { padding: .6rem .9rem; border-radius: 4px; margin-bottom: .75rem; }
+    .flash.error { background: #fde8e8; color: #9b1c1c; }
+    .flash.success { background: #def7ec; color: #03543f; }
+    .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: end; }
+    .status { text-transform: uppercase; font-size: .75rem; font-weight: 700; padding: .15rem .45rem; border-radius: 3px; background: #e5e7eb; }
+    .status.paid { background: #def7ec; color: #03543f; }
+    .status.sent { background: #e1effe; color: #1e429f; }
+    .status.void { background: #fde8e8; color: #9b1c1c; }
+    .scan input { font-size: 1.2rem; width: 18rem; }
+    @media print { nav, .no-print { display: none !important; } body { background: #fff; } .card { box-shadow: none; } }
+  </style>
+</head>
+<body>
+  <nav>
+    <a href="{{ url_for('billing.invoices') }}">Invoices</a>
+    <a href="{{ url_for('billing.customers') }}">Customers</a>
+    <a href="{{ url_for('billing.products') }}">Products</a>
+  </nav>
+  <main>
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+      <div class="flash {{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% block content %}{% endblock %}
+  </main>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
