@@ -7,6 +7,7 @@ import segno
 from flask import Flask, g
 from markupsafe import Markup
 
+from .icons import icon
 from .models import DEFAULT_TAX_SLABS, D, Setting, TaxSlab, db, money
 from .schema import add_missing_columns
 
@@ -85,6 +86,7 @@ def create_app(config=None):
             db.session.add_all(TaxSlab(rate=rate, name=name) for rate, name in DEFAULT_TAX_SLABS)
             db.session.commit()
 
+    app.add_template_global(icon)  # a global, so imported macros can use it too
     app.add_template_filter(inr)
     app.add_template_filter(qty)
 

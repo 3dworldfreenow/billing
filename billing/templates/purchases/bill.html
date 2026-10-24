@@ -11,10 +11,10 @@
     {% if purchase.order_number and not order %}<div class="muted small">From purchase order {{ purchase.order_number }}</div>{% endif %}</div>
   <div class="row no-print">
     <a class="btn secondary" href="{{ url_for('purchases.index') }}">All purchases</a>
-    {% if order or not edit %}<button class="secondary" onclick="window.print()">🖨 Print</button>{% endif %}
+    {% if order or not edit %}<button class="secondary" onclick="window.print()">{{ icon('printer') }} Print</button>{% endif %}
     {% if order %}<a class="btn whatsapp" href="{{ url_for('purchases.order_whatsapp', purchase_id=purchase.id) }}" target="_blank">Send order on WhatsApp</a>{% endif %}
     {% if purchase.status == 'saved' and current_user.can('products') %}
-      <form method="post" action="{{ url_for('products.labels_from_purchase', purchase_id=purchase.id) }}"><button class="secondary">🏷️ Print labels</button></form>{% endif %}
+      <form method="post" action="{{ url_for('products.labels_from_purchase', purchase_id=purchase.id) }}"><button class="secondary">{{ icon('barcode') }} Print labels</button></form>{% endif %}
     {% if not edit %}<a class="btn" href="{{ url_for('purchases.new') }}">+ New purchase</a>{% endif %}
   </div>
 </div>
@@ -74,7 +74,7 @@
           <td class="num">{{ item.gst_rate|qty }}%</td><td class="num">{{ item.mrp|inr }}</td><td class="num">{{ item.sale_rate|inr }}</td>
         {% endif %}
         <td class="num"><b>{{ item.amount|inr }}</b><div class="small muted">GST {{ item.tax|inr }}</div></td>
-        {% if edit %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">✕</button></td>{% endif %}
+        {% if edit %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">{{ icon('x') }}</button></td>{% endif %}
       </tr>
       {% else %}
       <tr><td colspan="12" class="empty">{{ 'Scan the products to order.' if order else "Scan products from the supplier's bill." }}</td></tr>
@@ -93,7 +93,7 @@
       {% if order %}
       <div class="row">
         <button class="secondary" name="action" value="update">Save order</button>
-        <button class="success big" name="action" value="receive">📦 Goods received → enter bill</button>
+        <button class="success big" name="action" value="receive">{{ icon('package') }} Goods received → enter bill</button>
         <button class="danger" form="discard" onclick="return confirm('Delete this order?')">Delete order</button>
       </div>
       {% elif edit %}

@@ -67,7 +67,7 @@
 
 <div class="actions">
   <div class="grid cols-2">
-    <button onclick="window.print()">🖨 Print again</button>
+    <button onclick="window.print()">{{ icon('printer') }} Print again</button>
     <a class="btn secondary" href="{{ url_for('sales.pos') }}" id="new-bill" data-key="F2">+ New bill <span class="kbd">F2</span></a>
   </div>
   <form method="get" action="{{ url_for('sales.whatsapp', sale_id=sale.id) }}" target="_blank" class="card" id="whatsapp" style="margin-top:1rem">

@@ -143,12 +143,13 @@
   // Camera scanning (phones/laptops). The library is loaded only on pages that need it.
   document.querySelectorAll('[data-camera]').forEach((btn) => {
     let scanner = null;
+    const label = btn.innerHTML;
     const input = document.getElementById(btn.dataset.camera);
     const box = document.getElementById('camera');
     btn.addEventListener('click', async () => {
       if (scanner) {
         await scanner.stop().catch(() => {}); scanner.clear(); scanner = null;
-        btn.textContent = '📷 Camera'; return;
+        btn.innerHTML = label; return;
       }
       if (!window.Html5Qrcode) { alert('Camera scanner is not available.'); return; }
       scanner = new Html5Qrcode('camera');
@@ -156,14 +157,14 @@
       try {
         await scanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 300, height: 140 } }, (code) => {
           scanner.stop().finally(() => {
-            scanner.clear(); scanner = null; btn.textContent = '📷 Camera';
+            scanner.clear(); scanner = null; btn.innerHTML = label;
             input.value = code;
             if (input.form && input.dataset.submitOnScan !== undefined) input.form.requestSubmit();
             else input.dispatchEvent(new Event('change'));
           });
         });
       } catch (err) {
-        scanner = null; btn.textContent = '📷 Camera';
+        scanner = null; btn.innerHTML = label;
         alert('Could not start the camera: ' + err + '\nCamera needs https:// or localhost.');
       }
     });

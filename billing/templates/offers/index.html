@@ -32,7 +32,7 @@
   </form>
   <div class="card">
     <h2>Top point holders</h2>
-    {% for c, points in top %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('parties.detail', party_id=c.id) }}">{{ c.name }}</a><span>⭐ {{ points }}</span></div>
+    {% for c, points in top %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('parties.detail', party_id=c.id) }}">{{ c.name }}</a><span>{{ icon('star', 13, 'text-amber') }} {{ points }}</span></div>
     {% else %}<p class="muted small">No points earned yet.</p>{% endfor %}
   </div>
 </div>

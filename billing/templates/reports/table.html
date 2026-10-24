@@ -4,17 +4,17 @@
 {% macro cell(value, kind) -%}
   {%- set v = value.v if value is mapping else value -%}
   {%- set text = (v|inr if kind == 'money' and v != '' else v|qty if kind == 'qty' and v != '' else v) -%}
-  {%- if value is mapping %}<a href="{{ value.url }}">{{ text }}</a>{% else %}{{ text }}{% endif -%}
+  {%- if value is mapping %}<a href="{{ value.url }}">{{ text }}</a>{% elif kind == 'money' and v is number and v < 0 %}<span class="text-red">{{ text }}</span>{% else %}{{ text }}{% endif -%}
 {%- endmacro %}
 {% block content %}
 {% set args = request.args.to_dict() %}
 <div class="page-head">
   <div><h1>{{ title }}</h1>{% if date_from %}<div class="muted small">{{ date_from.strftime('%d %b %Y') }} – {{ date_to.strftime('%d %b %Y') }}</div>{% endif %}</div>
   <div class="row no-print">
-    {% set _ = args.update(export='xlsx') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ Excel</a>
-    {% set _ = args.update(export='csv') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ CSV</a>
-    {% for label, url in actions %}<a class="btn" href="{{ url }}">{{ label }}</a>{% endfor %}
-    <button class="secondary" onclick="window.print()">🖨 Print</button>
+    {% set _ = args.update(export='xlsx') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">{{ icon('download') }} Excel</a>
+    {% set _ = args.update(export='csv') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">{{ icon('download') }} CSV</a>
+    {% for label, url in actions %}<a class="btn" href="{{ url }}">{{ icon('download') }} {{ label }}</a>{% endfor %}
+    <button class="secondary" onclick="window.print()">{{ icon('printer') }} Print</button>
     <a class="btn secondary" href="{{ url_for('reports.dashboard') }}">All reports</a>
   </div>
 </div>

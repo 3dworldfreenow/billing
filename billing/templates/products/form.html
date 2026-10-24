@@ -5,7 +5,7 @@
 <div class="page-head">
   <h1>{{ 'Edit product' if product.id else 'New product' }}</h1>
   <div class="row">
-    {% if product.id %}<form method="post" action="{{ url_for('products.labels') }}"><input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="copies" value="1"><button class="secondary">🏷️ Add to labels</button></form>{% endif %}
+    {% if product.id %}<form method="post" action="{{ url_for('products.labels') }}"><input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="copies" value="1"><button class="secondary">{{ icon('barcode') }} Add to labels</button></form>{% endif %}
     <a class="btn secondary" href="{{ url_for('products.index') }}">All products</a>
   </div>
 </div>
@@ -14,7 +14,7 @@
     <div><label for="name">Name *</label><input id="name" name="name" value="{{ product.name or '' }}" required {{ 'autofocus' if product.barcode and not product.id }}></div>
     <div><label for="barcode">Barcode</label>
       <div class="scanbar"><input id="barcode" name="barcode" value="{{ product.barcode or '' }}" data-barcode-field {{ 'autofocus' if not product.barcode }} placeholder="Scan the product's barcode" autocomplete="off">
-      <button type="button" class="secondary" data-camera="barcode">📷 Camera</button>
+      <button type="button" class="secondary" data-camera="barcode">{{ icon('camera') }} Camera</button>
       {% if product.id and not product.barcode %}<button class="secondary" form="make-barcode" title="Create an in-store barcode to print on labels">Create</button>{% endif %}</div>
       <div id="camera"></div></div>
   </div>

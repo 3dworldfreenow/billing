@@ -16,7 +16,7 @@
     <tr><th>Bill</th><th>Time</th><th>Customer</th><th>Cashier</th><th>Mode</th><th class="num">Items</th><th class="num">Net</th><th>Status</th></tr>
     {% for s in sales %}
     <tr><td><a href="{{ url_for('sales.bill', sale_id=s.id) }}">{{ s.doc_no }}</a>{% if s.is_return %} <span class="badge warn">credit note</span>{% endif %}</td><td>{{ s.created_at.strftime('%d-%m %I:%M %p') }}</td>
-      <td>{{ s.customer_name }}</td><td>{{ s.cashier_name }}</td><td>{{ s.payment_mode|upper }}</td><td class="num">{{ s.items|length }}</td>
+      <td>{{ s.customer_name }}</td><td>{{ s.cashier_name }}</td><td><span class="badge mode-{{ s.payment_mode }}">{{ s.payment_mode|upper }}</span></td><td class="num">{{ s.items|length }}</td>
       <td class="num">₹{{ s.net|inr }}</td><td><span class="badge {{ s.status }}">{{ s.status }}</span>{% if s.status == 'saved' and s.due > 0 %} <span class="badge bad">due {{ s.due|inr }}</span>{% endif %}</td></tr>
     {% else %}
     <tr><td colspan="8" class="empty">No bills in this period.</td></tr>

@@ -5,10 +5,10 @@
 <div class="page-head">
   <h1>Products</h1>
   <div class="row">
-    <a class="btn secondary" href="{{ url_for('products.labels') }}">🏷️ Labels</a>
-    <a class="btn secondary" href="{{ url_for('products.import_') }}">⬆ Import</a>
-    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='xlsx') }}">⬇ Excel</a>
-    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='csv') }}">⬇ CSV</a>
+    <a class="btn secondary" href="{{ url_for('products.labels') }}">{{ icon('barcode') }} Labels</a>
+    <a class="btn secondary" href="{{ url_for('products.import_') }}">{{ icon('upload') }} Import</a>
+    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='xlsx') }}">{{ icon('download') }} Excel</a>
+    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='csv') }}">{{ icon('download') }} CSV</a>
     <a class="btn" href="{{ url_for('products.edit') }}">+ New product</a>
   </div>
 </div>
@@ -23,7 +23,7 @@
   <table>
     <tr><th>Name</th><th>Barcode</th><th>Category</th><th>Brand</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Cost</th><th class="num">GST</th><th class="num">Stock</th></tr>
     {% for p in products %}
-    <tr><td><a href="{{ url_for('products.edit', product_id=p.id) }}">{{ p.name }}</a></td><td><code>{{ p.barcode or '' }}</code></td>
+    <tr><td><a href="{{ url_for('products.edit', product_id=p.id) }}">{{ p.name }}</a></td><td>{% if p.barcode %}<code>{{ p.barcode }}</code>{% else %}<span class="muted small">—</span>{% endif %}</td>
       <td>{{ p.category or '' }}</td><td>{{ p.brand or '' }}</td><td class="num">{{ p.mrp|inr }}</td><td class="num">{{ p.sale_rate|inr }}</td>
       <td class="num">{{ p.purchase_rate|inr }}</td><td class="num">{{ p.gst_rate|qty }}%</td>
       <td class="num">{% if p.min_stock > 0 and p.stock <= p.min_stock %}<span class="badge bad">{{ p.stock|qty }}</span>{% else %}{{ p.stock|qty }}{% endif %} <span class="muted small">{{ p.unit }}</span></td></tr>

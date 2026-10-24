@@ -15,14 +15,14 @@
     {% if held %}<span class="muted small">Held bills:</span>
       {% for h in held %}<a class="btn secondary" href="{{ url_for('sales.bill', sale_id=h.id) }}">#{{ h.id }} · {{ h.items|length }} item{{ 's' if h.items|length != 1 }} · ₹{{ h.net|inr }}</a>{% endfor %}
     {% endif %}
-    {% if draft and sale.items %}<a class="btn secondary" href="{{ url_for('sales.pos') }}" title="Keep this bill and start another">⏸ Hold &amp; new</a>{% endif %}
+    {% if draft and sale.items %}<a class="btn secondary" href="{{ url_for('sales.pos') }}" title="Keep this bill and start another">{{ icon('pause') }} Hold &amp; new</a>{% endif %}
     {% if not draft %}<a class="btn" href="{{ url_for('sales.pos') }}" data-key="F2">+ New bill</a>{% endif %}
   </div>
 </div>
 
 {% if draft %}
 <div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id), url_for('sales.add', sale_id=sale.id)) }}
-  {% if offers %}<div class="small" style="margin-top:.5rem">🏷️ Offers running: {% for o in offers %}<span class="badge ok">{{ o.name }}</span> {% endfor %}</div>{% endif %}
+  {% if offers %}<div class="small" style="margin-top:.5rem">{{ icon("gift", 13, "text-green") }} Offers running: {% for o in offers %}<span class="badge ok">{{ o.name }}</span> {% endfor %}</div>{% endif %}
 </div>
 {% set create = url_for('products.edit', add_to='sale:%d' % sale.id) if current_user.can('products') else None %}
 {{ picker(matches, url_for('sales.add', sale_id=sale.id), add_qty, q, create) }}
@@ -54,7 +54,7 @@
                 {% if item.batch and item.batch not in batches %}<option value="{{ item.batch_id }}" selected>{{ item.batch.label }}</option>{% endif %}
               </select>
             {% endif %}
-            {% if item.promo_note %}<div class="small" style="color:var(--ok)">🏷️ {{ item.promo_note }}: −₹{{ item.promo_amount|inr }}</div>{% endif %}
+            {% if item.promo_note %}<div class="small text-green">{{ icon("tag", 13) }} {{ item.promo_note }}: −₹{{ item.promo_amount|inr }}</div>{% endif %}
           </td>
           <td class="num muted">{{ (item.batch.qty if item.batch else item.product.stock)|qty if item.product else '' }}</td>
           <td class="num">{{ item.mrp|inr }}</td>
@@ -66,7 +66,7 @@
           <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.rate|inr }}</td><td class="num">{{ item.disc_pct|qty }}</td>
           {% endif %}
           <td class="num"><b>{{ item.amount|inr }}</b></td>
-          {% if draft %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">✕</button></td>{% endif %}
+          {% if draft %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">{{ icon('x') }}</button></td>{% endif %}
         </tr>
         {% else %}
         <tr><td colspan="9" class="empty">Scan a product to start the bill.</td></tr>
@@ -78,75 +78,68 @@
     </div>
 
     <div class="card totals">
-      <label for="party_id">Customer</label>
+      <div class="row spread" style="align-items:center"><label for="party_id" style="margin:0">Customer</label>
+        {% if draft %}<details class="small quick-add"><summary>{{ icon('plus', 13) }} New</summary>
+          <div class="pop"><input form="quick-customer" name="name" placeholder="Name"><input form="quick-customer" name="phone" placeholder="Mobile" inputmode="tel">
+          <button form="quick-customer">Add customer</button></div></details>{% endif %}</div>
       {% if draft %}
-      <input data-autocomplete="customers" data-pick="select:party_id" placeholder="Search customer by name or mobile" aria-label="Search customer" style="margin-bottom:.35rem">
+      <input data-autocomplete="customers" data-pick="select:party_id" placeholder="Search name or mobile…" aria-label="Search customer" style="margin:6px 0 5px">
       <select id="party_id" name="party_id" onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))">
         <option value="">Walk-in Customer</option>
         {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if sale.party_id == c.id }}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}{% if c.price_list == 'wholesale' %} · wholesale{% endif %}</option>{% endfor %}
       </select>
-      <details class="small" style="margin-top:.35rem"><summary>+ New customer</summary>
-        <div class="row" style="margin-top:.4rem">
-          <input form="quick-customer" name="name" placeholder="Name" class="field">
-          <input form="quick-customer" name="phone" placeholder="Mobile" inputmode="tel" class="field">
-          <button form="quick-customer" class="secondary">Add</button>
-        </div>
-      </details>
       {% else %}
-      <div>{{ sale.customer_name }}{% if sale.party and sale.party.phone %} · {{ sale.party.phone }}{% endif %}</div>
+      <div style="margin-top:4px">{{ sale.customer_name }}{% if sale.party and sale.party.phone %} <span class="muted">· {{ sale.party.phone }}</span>{% endif %}</div>
       {% endif %}
-      {% if sale.party and sale.price_list == 'wholesale' %}<div class="small"><span class="badge warn">Wholesale rates</span></div>{% endif %}
+      {% if sale.party and sale.price_list == 'wholesale' %}<div class="small" style="margin-top:4px"><span class="badge warn">Wholesale rates</span></div>{% endif %}
 
-      <div style="margin-top:.9rem">
-        <div class="line"><span>Gross</span><span>₹{{ sale.gross|inr }}</span></div>
-        <div class="line"><span>Discount (₹)</span>
-          {% if draft %}<input name="discount" value="{{ sale.discount }}" inputmode="decimal" data-recalc style="width:110px;text-align:right">{% else %}<span>−₹{{ sale.discount|inr }}</span>{% endif %}
+      <div class="sums">
+        <div class="line"><span>Gross <span class="muted small">· {{ sale.items|length }} item{{ 's' if sale.items|length != 1 }}</span></span><span>₹{{ sale.gross|inr }}</span></div>
+        <div class="line"><span>Discount</span>
+          {% if draft %}<input name="discount" value="{{ sale.discount }}" inputmode="decimal" data-recalc class="mini" aria-label="Bill discount in rupees">{% else %}<span>−₹{{ sale.discount|inr }}</span>{% endif %}
         </div>
-        {% if sale.promo_discount|float %}<div class="line small" style="color:var(--ok)"><span>🏷️ {{ sale.promo_note }}</span><span>−₹{{ sale.promo_discount|inr }}</span></div>{% endif %}
-        {% if draft and sale.party and loyalty_on %}
-          {% set available = sale.party.points %}
-          <div class="line small"><span>⭐ Use points <span class="muted">({{ available }} available, 1 = ₹{{ store.loyalty_value|qty }})</span></span>
-            <input name="points" value="{{ sale.points_redeemed or '' }}" inputmode="numeric" data-recalc style="width:80px;text-align:right" placeholder="0" aria-label="Points to use"></div>
-        {% endif %}
-        {% if sale.redeem_amount|float %}<div class="line small"><span>⭐ Points used ({{ sale.points_redeemed }})</span><span>−₹{{ sale.redeem_amount|inr }}</span></div>{% endif %}
-        {% if sale.taxed %}<div class="line muted small"><span>incl. GST</span><span>₹{{ sale.tax|inr }}</span></div>{% endif %}
-        <div class="line muted small"><span>Round off</span><span>{{ sale.round_off|inr }}</span></div>
-        <div class="net">{% if sale.is_return %}Refund ₹{{ (-sale.net)|inr }}{% else %}₹{{ sale.net|inr }}{% endif %}</div>
-        {% if sale.savings > 0 and not sale.is_return %}<div class="right small" style="color:var(--ok)">Customer saves ₹{{ sale.savings|inr }}</div>{% endif %}
-        {% if sale.points_earned and not draft %}<div class="right small">⭐ {{ sale.points_earned }} points earned</div>{% endif %}
+        {% if sale.promo_discount|float %}<div class="line small text-green"><span>{{ icon('tag', 13) }} {{ sale.promo_note }}</span><span>−₹{{ sale.promo_discount|inr }}</span></div>{% endif %}
+        {% if draft and sale.party and loyalty_on %}{% set available = sale.party.points %}{% if available or sale.points_redeemed %}
+          <div class="line small"><span>{{ icon('star', 13, 'text-amber') }} Points <span class="muted">({{ available }} · 1 = ₹{{ store.loyalty_value|qty }})</span></span>
+            <input name="points" value="{{ sale.points_redeemed or '' }}" inputmode="numeric" data-recalc class="mini" placeholder="0" aria-label="Points to use"></div>
+        {% endif %}{% endif %}
+        {% if sale.redeem_amount|float and not draft %}<div class="line small"><span>{{ icon('star', 13, 'text-amber') }} Points used ({{ sale.points_redeemed }})</span><span>−₹{{ sale.redeem_amount|inr }}</span></div>{% endif %}
+        <div class="line muted small"><span>{% if sale.taxed %}incl. GST ₹{{ sale.tax|inr }} · {% endif %}round off {{ sale.round_off|inr }}</span>
+          {% if sale.savings > 0 and not sale.is_return %}<span class="text-green">saves ₹{{ sale.savings|inr }}</span>{% endif %}</div>
       </div>
+      <div class="net{{ ' refund' if sale.is_return }}">{% if sale.is_return %}Refund ₹{{ (-sale.net)|inr }}{% else %}₹{{ sale.net|inr }}{% endif %}</div>
+      {% if sale.points_earned and not draft %}<div class="right small">{{ icon('star', 13, 'text-amber') }} {{ sale.points_earned }} points earned</div>{% endif %}
 
-      <label>{{ 'Refund' if sale.is_return else 'Payment' }}</label>
       {% if draft %}
-      <div class="modes">
+      <div class="modes" role="radiogroup" aria-label="Payment mode" style="margin-top:10px">
         {% for m in modes %}<label><input type="radio" name="payment_mode" value="{{ m }}" {{ 'checked' if sale.payment_mode == m }} onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))"><span>{{ m }}</span></label>{% endfor %}
       </div>
       {% if sale.payment_mode == 'credit' %}
-        <label for="paid">Paid now (₹)</label><input id="paid" name="paid" value="{{ sale.paid }}" inputmode="decimal">
+        <div class="line" style="margin-top:8px"><label for="paid" style="margin:0">Paid now (₹)</label><input id="paid" name="paid" value="{{ sale.paid }}" inputmode="decimal" class="mini"></div>
       {% elif sale.payment_mode == 'cash' and sale.net > 0 %}
-        <div class="row" style="margin-top:.5rem"><div class="field"><label for="received">Cash received</label><input id="received" data-net="{{ sale.net }}" inputmode="decimal"></div>
-        <div class="field"><label>Change</label><div id="change" style="font-size:1.3rem;font-weight:700">—</div></div></div>
+        <div class="line" style="margin-top:8px"><input id="received" data-net="{{ sale.net }}" inputmode="decimal" placeholder="Cash received" aria-label="Cash received" style="width:140px">
+          <span class="small muted">Change <b id="change" class="text-green" style="font-size:16px">—</b></span></div>
       {% elif sale.payment_mode == 'upi' %}
         {% set qr = upi_qr(sale.net, 'Bill') %}
-        {% if qr %}<div class="qr" style="margin-top:.5rem">{{ qr }}<div class="small muted">Scan with any UPI app · ₹{{ sale.net|inr }}</div></div>
+        {% if qr %}<div class="qr" style="margin-top:8px">{{ qr }}<div class="small muted">Scan with any UPI app · ₹{{ sale.net|inr }}</div></div>
         {% elif current_user.can('settings') %}<p class="small muted">Add your UPI ID in <a href="{{ url_for('settings.index') }}">Settings</a> to show a payment QR code here.</p>{% endif %}
       {% endif %}
 
-      <div class="grid" style="margin-top:1rem">
-        <button class="success big" name="action" value="print" data-key="F9">🖨 Save &amp; Print <span class="kbd">F9</span></button>
-        <button class="big secondary" name="action" value="save" data-key="F8">Save <span class="kbd">F8</span></button>
-        <button class="danger" form="discard" onclick="return confirm('Discard this bill?')">Discard bill</button>
+      <button class="success big" name="action" value="print" data-key="F9" style="width:100%;margin-top:12px">{{ icon('printer') }} Save &amp; Print <span class="kbd">F9</span></button>
+      <div class="grid cols-2" style="margin-top:6px;gap:6px">
+        <button class="secondary" name="action" value="save" data-key="F8">Save <span class="kbd">F8</span></button>
+        <button class="danger" form="discard" onclick="return confirm('Discard this bill?')">Discard</button>
       </div>
       {% else %}
-      <div>{{ sale.payment_mode|upper }}{% if sale.due > 0 %} · <span class="badge bad">Due ₹{{ sale.due|inr }}</span>{% endif %}</div>
+      <div><span class="badge mode-{{ sale.payment_mode }}">{{ sale.payment_mode|upper }}</span>{% if sale.due > 0 %} · <span class="badge bad">Due ₹{{ sale.due|inr }}</span>{% endif %}</div>
       {% if sale.status == 'saved' %}
       <div class="grid" style="margin-top:1rem">
-        {% if store.printer_mode != 'browser' %}<button class="success" form="print-direct">🖨 Print receipt</button>{% endif %}
-        <a class="btn {{ 'secondary' if store.printer_mode != 'browser' else 'success' }}" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">{{ '🖨 Print receipt' if store.printer_mode == 'browser' else 'Receipt on screen' }}</a>
-        <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">📄 A4 {{ 'credit note' if sale.is_return else 'GST invoice' }}</a>
+        {% if store.printer_mode != 'browser' %}<button class="success" form="print-direct">{{ icon('printer') }} Print receipt</button>{% endif %}
+        <a class="btn {{ 'secondary' if store.printer_mode != 'browser' else 'success' }}" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">{% if store.printer_mode == 'browser' %}{{ icon('printer') }} Print receipt{% else %}Receipt on screen{% endif %}</a>
+        <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">{{ icon('bills') }} A4 {{ 'credit note' if sale.is_return else 'GST invoice' }}</a>
         <a class="btn whatsapp" href="{{ url_for('sales.receipt', sale_id=sale.id) }}#whatsapp">WhatsApp</a>
         {% if current_user.can('cancel') %}
-          {% if not sale.is_return %}<a class="btn secondary" href="{{ url_for('sales.make_return', sale_id=sale.id) }}">↩ Return items</a>{% endif %}
+          {% if not sale.is_return %}<a class="btn secondary" href="{{ url_for('sales.make_return', sale_id=sale.id) }}">{{ icon('undo') }} Return items</a>{% endif %}
           <button class="danger" form="cancel" onclick="return confirm('Cancel {{ sale.title }}? Stock will be reversed.')">Cancel {{ 'credit note' if sale.is_return else 'bill' }}</button>
         {% endif %}
       </div>

@@ -3,7 +3,7 @@
 {% block title %}Purchases{% endblock %}
 {% block content %}
 <div class="page-head"><h1>Purchases</h1>
-  <div class="row"><a class="btn secondary" href="{{ url_for('purchases.reorder') }}">📋 Reorder list</a>
+  <div class="row"><a class="btn secondary" href="{{ url_for('purchases.reorder') }}">{{ icon('clipboard') }} Reorder list</a>
     <a class="btn secondary" href="{{ url_for('purchases.new_order') }}">+ Purchase order</a>
     <a class="btn" href="{{ url_for('purchases.new') }}">+ New purchase</a></div></div>
 {% if orders %}
@@ -22,7 +22,7 @@
     <tr><th>Entry</th><th>Date</th><th>Supplier</th><th>Supplier bill</th><th>Mode</th><th class="num">Net</th><th>Status</th></tr>
     {% for p in purchases %}
     <tr><td><a href="{{ url_for('purchases.bill', purchase_id=p.id) }}">{{ p.number }}</a></td><td>{{ p.created_at.strftime('%d-%m-%Y') }}</td>
-      <td>{{ p.supplier_name }}</td><td>{{ p.bill_no or '' }}</td><td>{{ p.payment_mode|upper }}</td><td class="num">₹{{ p.net|inr }}</td>
+      <td>{{ p.supplier_name }}</td><td>{{ p.bill_no or '' }}</td><td><span class="badge mode-{{ p.payment_mode }}">{{ p.payment_mode|upper }}</span></td><td class="num">₹{{ p.net|inr }}</td>
       <td><span class="badge {{ p.status }}">{{ p.status }}</span>{% if p.status == 'saved' and p.due > 0 %} <span class="badge bad">due {{ p.due|inr }}</span>{% endif %}</td></tr>
     {% else %}
     <tr><td colspan="7" class="empty">No purchases in this period.</td></tr>

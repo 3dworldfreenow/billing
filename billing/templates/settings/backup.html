@@ -5,8 +5,8 @@
     <h2>Export all data</h2>
     <p class="small muted">One Excel file with every product, bill, purchase, customer, payment, expense and stock change, one sheet each. Good for your CA or for keeping a copy anywhere.</p>
     <div class="row">
-      <a class="btn" href="{{ url_for('settings.export_all') }}">⬇ Export all data (Excel)</a>
-      <a class="btn secondary" href="{{ url_for('settings.backup_download') }}">⬇ Download database backup</a>
+      <a class="btn" href="{{ url_for('settings.export_all') }}">{{ icon('download') }} Export all data (Excel)</a>
+      <a class="btn secondary" href="{{ url_for('settings.backup_download') }}">{{ icon('download') }} Download database backup</a>
     </div>
   </div>
 
@@ -15,7 +15,7 @@
     {% if store.drive_refresh_token %}
       <p><span class="badge ok">Connected</span> Uploads go to the folder “{{ store.store_name }} Backups” in your Drive.</p>
       <div class="row">
-        <form method="post" action="{{ url_for('settings.drive_upload') }}"><button>⬆ Upload to Google Drive now</button></form>
+        <form method="post" action="{{ url_for('settings.drive_upload') }}"><button>{{ icon('upload') }} Upload to Google Drive now</button></form>
         <form method="post" action="{{ url_for('settings.drive_disconnect') }}" onsubmit="return confirm('Disconnect Google Drive?')"><button class="danger">Disconnect</button></form>
       </div>
       <p class="small muted">Each upload has a database backup (.db) and the Excel export.</p>

@@ -29,7 +29,7 @@
 </style>
 </head>
 <body>
-<div class="bar"><button onclick="window.print()">🖨 Print {{ labels|length }} labels</button> Use 100% scale / "Actual size", no margins.</div>
+<div class="bar"><button onclick="window.print()">{{ icon('printer') }} Print {{ labels|length }} labels</button> Use 100% scale / "Actual size", no margins.</div>
 <div class="sheet {{ layout }}">
   {% for p, svg in labels %}
   <div class="label">

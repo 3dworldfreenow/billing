@@ -35,7 +35,7 @@
 </form>
 {% if store.printer_mode != 'browser' %}
 <div class="row card">
-  <form method="post" action="{{ url_for('settings.test_printer') }}"><button class="secondary">🖨 Print test page</button></form>
+  <form method="post" action="{{ url_for('settings.test_printer') }}"><button class="secondary">{{ icon('printer') }} Print test page</button></form>
   <form method="post" action="{{ url_for('settings.test_printer') }}"><input type="hidden" name="what" value="drawer"><button class="secondary">Open cash drawer</button></form>
 </div>
 {% endif %}

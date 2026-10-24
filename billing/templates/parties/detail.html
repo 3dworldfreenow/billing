@@ -11,9 +11,9 @@
 </div>
 <div class="grid cols-2">
   <div class="card stat"><div class="label">{{ 'Customer owes you' if customer else 'You owe this supplier' }}</div>
-    <div class="value" style="color:{{ 'var(--bad)' if bal > 0 else 'var(--ok)' }}">₹{{ bal|inr }}</div>
+    <div class="value" style="color:{{ 'var(--red)' if bal > 0 else 'var(--green)' }}">₹{{ bal|inr }}</div>
     {% if party.opening_balance|float %}<div class="small muted">includes opening balance ₹{{ party.opening_balance|inr }}</div>{% endif %}
-    {% if customer and store.loyalty_rate > 0 %}<div class="small">⭐ {{ party.points }} loyalty points</div>{% endif %}
+    {% if customer and store.loyalty_rate > 0 %}<div class="small">{{ icon('star', 13, 'text-amber') }} {{ party.points }} loyalty points</div>{% endif %}
     {% if party.price_list == 'wholesale' %}<div><span class="badge warn">Wholesale customer</span></div>{% endif %}</div>
   <form method="post" action="{{ url_for('parties.payment', party_id=party.id) }}" class="card">
     <h2>{{ 'Receive payment' if customer else 'Record payment' }}</h2>
@@ -31,7 +31,7 @@
       <tr><th>No.</th><th>Date</th><th>Mode</th><th class="num">Net</th><th class="num">Due</th></tr>
       {% for d in documents %}
       <tr><td><a href="{{ url_for('sales.bill', sale_id=d.id) if customer else url_for('purchases.bill', purchase_id=d.id) }}">{{ d.doc_no if customer else d.number }}</a></td>
-        <td>{{ d.created_at.strftime('%d-%m-%Y') }}</td><td>{{ d.payment_mode|upper }}</td><td class="num">{{ d.net|inr }}</td><td class="num">{{ d.due|inr if d.due > 0 else '' }}</td></tr>
+        <td>{{ d.created_at.strftime('%d-%m-%Y') }}</td><td><span class="badge mode-{{ d.payment_mode }}">{{ d.payment_mode|upper }}</span></td><td class="num">{{ d.net|inr }}</td><td class="num">{{ d.due|inr if d.due > 0 else '' }}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">None yet.</td></tr>{% endfor %}
     </table>
   </div>

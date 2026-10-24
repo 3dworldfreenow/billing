@@ -11,10 +11,10 @@
 </div>
 
 <div class="grid cols-4">
-  <div class="card stat"><div class="label">Cash expected in drawer</div><div class="value" style="color:var(--brand)">₹{{ r.expected|inr }}</div></div>
-  <div class="card stat"><div class="label">UPI</div><div class="value">₹{{ r.upi|inr }}</div></div>
-  <div class="card stat"><div class="label">Card</div><div class="value">₹{{ r.card|inr }}</div></div>
-  <div class="card stat"><div class="label">Credit given</div><div class="value">₹{{ r.credit_given|inr }}</div></div>
+  <div class="card stat"><span class="chip green">{{ icon('wallet') }}</span><div class="label">Cash expected in drawer</div><div class="value">₹{{ r.expected|inr }}</div></div>
+  <div class="card stat"><span class="chip violet">{{ icon('rupee') }}</span><div class="label">UPI</div><div class="value">₹{{ r.upi|inr }}</div></div>
+  <div class="card stat"><span class="chip blue">{{ icon('bills') }}</span><div class="label">Card</div><div class="value">₹{{ r.card|inr }}</div></div>
+  <div class="card stat"><span class="chip amber">{{ icon('clock') }}</span><div class="label">Credit given</div><div class="value">₹{{ r.credit_given|inr }}</div></div>
 </div>
 
 <div class="grid cols-2" style="align-items:start">

@@ -197,7 +197,7 @@ def gst():
                      out_tax - in_tax])
     totals = ["Total"] + [sum((r[i] for r in rows), Decimal(0)) for i in range(1, 8)]
     gstr = url_for("reports.gstr1", **{"from": args["date_from"], "to": args["date_to"]})
-    return table("GST summary", columns, rows, totals, actions=[("⬇ GSTR-1 & 3B (Excel)", gstr)],
+    return table("GST summary", columns, rows, totals, actions=[("GSTR-1 & 3B (Excel)", gstr)],
                  note="Intra-state: GST is split equally into CGST and SGST. Composition-scheme bills are excluded "
                       "from output tax.", **args)
 

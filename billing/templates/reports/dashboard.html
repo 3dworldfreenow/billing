@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
 {% block content %}
-<div class="page-head"><h1>Dashboard</h1><span class="muted">{{ store.store_name }}</span></div>
+<div class="page-head"><div><h1>Dashboard</h1><div class="muted small">{{ today.strftime('%A, %d %B %Y') }}</div></div>
+  {% if current_user.can('sales') %}<a class="btn" href="{{ url_for('sales.pos') }}">{{ icon('plus') }} New bill</a>{% endif %}</div>
 <div class="grid cols-4">
-  <div class="card stat"><div class="label">Today's sales</div><div class="value">₹{{ today_sales.net|inr }}</div><div class="small muted">{{ today_sales.bills }} bills</div></div>
-  <div class="card stat"><div class="label">Today's profit</div><div class="value">₹{{ today_sales.profit|inr }}</div><div class="small muted">Cash ₹{{ today_sales.cash|inr }} · UPI ₹{{ today_sales.upi|inr }}</div></div>
-  <div class="card stat"><div class="label">This month's sales</div><div class="value">₹{{ month_sales.net|inr }}</div><div class="small muted">{{ month_sales.bills }} bills · profit ₹{{ month_sales.profit|inr }}</div></div>
-  <div class="card stat"><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div><div class="small muted">Expenses this month ₹{{ expenses_month|inr }}</div></div>
+  <div class="card stat"><span class="chip brand">{{ icon('rupee') }}</span><div class="label">Today's sales</div><div class="value">₹{{ today_sales.net|inr }}</div>
+    <div class="small muted">{{ today_sales.bills }} bills{% if today_sales.bills %} · avg ₹{{ (today_sales.net / today_sales.bills)|inr }}{% endif %}</div></div>
+  <div class="card stat"><span class="chip green">{{ icon('trend') }}</span><div class="label">Today's profit</div><div class="value {{ 'text-red' if today_sales.profit < 0 else 'text-green' }}">₹{{ today_sales.profit|inr }}</div>
+    <div class="small"><span class="badge mode-cash">Cash ₹{{ today_sales.cash|inr }}</span> <span class="badge mode-upi">UPI ₹{{ today_sales.upi|inr }}</span></div></div>
+  <div class="card stat"><span class="chip violet">{{ icon('chart') }}</span><div class="label">This month's sales</div><div class="value">₹{{ month_sales.net|inr }}</div>
+    <div class="small muted">{{ month_sales.bills }} bills · profit <span class="text-green">₹{{ month_sales.profit|inr }}</span></div></div>
+  <div class="card stat"><span class="chip amber">{{ icon('package') }}</span><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div>
+    <div class="small muted">Expenses ₹{{ expenses_month|inr }}{% if today_sales.due > 0 %} · <span class="text-amber">credit today ₹{{ today_sales.due|inr }}</span>{% endif %}</div></div>
 </div>
 <div class="grid cols-2">
   <div class="card">

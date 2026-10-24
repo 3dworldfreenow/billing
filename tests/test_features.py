@@ -165,7 +165,7 @@ def test_generate_barcode_and_print_labels(client):
     client.post("/products/labels", data={"code": SOAP, "copies": "2"})
     assert b"Loose Sugar" in client.get("/products/labels").data
     page = client.get("/products/labels/print?layout=a4-65").data.decode()
-    assert page.count('class="label"') == 5 and page.count("<svg") == 5
+    assert page.count('class="label"') == 5 and page.count("<svg version") == 5  # barcodes, not icons
 
 
 def test_labels_from_purchase(client):

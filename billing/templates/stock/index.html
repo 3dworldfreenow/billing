@@ -6,7 +6,7 @@
 <div class="card">
   <form method="get">
     <div class="scanbar"><input id="code" name="q" value="{{ q }}" data-scan data-submit-on-scan data-autocomplete="products" data-pick="go" data-go-url="{{ url_for('stock.index') }}?product_id=__ID__" autocomplete="off" placeholder="Scan or search the product you counted" aria-label="Product">
-      <button>Find</button><button type="button" class="secondary" data-camera="code">📷 Camera</button></div>
+      <button>Find</button><button type="button" class="secondary" data-camera="code">{{ icon('camera') }} Camera</button></div>
     <div id="camera"></div>
   </form>
 </div>

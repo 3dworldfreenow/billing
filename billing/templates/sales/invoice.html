@@ -62,7 +62,7 @@
     <div class="small">{{ store.bill_footer or '' }}</div>
     <div class="right">For {{ store.store_name }}<br><br><br>Authorised signatory</div>
   </div>
-  <p class="no-print" style="margin-top:1.5rem"><button onclick="window.print()">🖨 Print</button> <a class="btn secondary" href="{{ url_for('sales.bill', sale_id=sale.id) }}">Back</a></p>
+  <p class="no-print" style="margin-top:1.5rem"><button onclick="window.print()">{{ icon('printer') }} Print</button> <a class="btn secondary" href="{{ url_for('sales.bill', sale_id=sale.id) }}">Back</a></p>
 </div>
 </body>
 </html>

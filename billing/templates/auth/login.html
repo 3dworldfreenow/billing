@@ -2,7 +2,9 @@
 {% block title %}Log in{% endblock %}
 {% block public %}
 <form method="post" class="card">
-  <h1 style="text-align:center">🛒 {{ store.store_name }}</h1>
+  <div style="text-align:center;margin-bottom:.5rem"><span class="chip brand" style="display:inline-grid;width:40px;height:40px;border-radius:10px">{{ icon("cart", 20) }}</span></div>
+  <h1 style="text-align:center">{{ store.store_name }}</h1>
+  <p class="muted" style="text-align:center;margin-top:.25rem">Sign in to continue</p>
   <label for="username">Username</label><input id="username" name="username" autocomplete="username" autofocus required autocapitalize="none">
   <label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required>
   <p><button style="width:100%">Log in</button></p>
