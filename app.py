@@ -1,6 +1,10 @@
 import os
+import sys
 
-from billing import create_app
+if sys.version_info < (3, 11):
+    sys.exit(f"This app needs Python 3.11 or newer; this is Python {sys.version.split()[0]}. See README: Requirements.")
+
+from billing import create_app  # noqa: E402
 
 app = create_app()
 

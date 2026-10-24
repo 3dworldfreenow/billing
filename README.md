@@ -53,9 +53,32 @@ change rates or cancel bills, and an **audit log** of cancellations, returns, pr
 | `F8` | Save bill |
 | `F9` | Save & print |
 
+## Requirements
+
+Python **3.11 or newer** (3.12 recommended). Check with `python3 --version`.
+
+## Run on a Linux server (VPS)
+
+Older Linux servers ship Python 3.6, which is too old. Install a recent Python just for this app with
+[uv](https://docs.astral.sh/uv/) (works on CentOS/RHEL/Rocky/Ubuntu, no system changes):
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"
+cd billing                      # the unzipped app folder
+uv venv --python 3.12 .venv
+uv pip install --python .venv -r requirements.txt
+.venv/bin/python app.py         # serves on port 5000
+```
+
+Open port 5000 in the firewall (`firewall-cmd --add-port=5000/tcp --permanent && firewall-cmd --reload` on
+CentOS/Rocky, `ufw allow 5000` on Ubuntu) and browse to `http://<server-ip>:5000`. For use over the internet, put it
+behind HTTPS (a domain with nginx + Let's Encrypt): logins should not travel over plain http, and phone cameras only
+scan on https.
+
 ## Run on the shop PC
 
-- **Windows:** install Python 3 from python.org, then double-click `run_windows.bat`.
+- **Windows:** install Python 3.12 from python.org (tick "Add Python to PATH"), then double-click `run_windows.bat`.
 - **Linux/macOS:** `./run.sh`
 
 Open http://localhost:5000. On first run you create the admin account, then fill in the store details
