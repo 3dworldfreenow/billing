@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}{{ party.name or 'New ' ~ party.kind }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit' if party.id else 'New' }} {{ party.kind }}</h1></div>
+<form method="post" class="card" style="max-width:640px">
+  <label for="name">Name *</label><input id="name" name="name" value="{{ party.name or '' }}" required autofocus>
+  <div class="grid cols-2">
+    <div><label for="phone">Mobile (for WhatsApp)</label><input id="phone" name="phone" inputmode="tel" value="{{ party.phone or '' }}"></div>
+    <div><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="{{ party.gstin or '' }}"></div>
+  </div>
+  <label for="address">Address</label><textarea id="address" name="address" rows="3">{{ party.address or '' }}</textarea>
+  <p><button>Save</button></p>
+</form>
+{% endblock %}

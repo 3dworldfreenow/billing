@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bill {{ sale.number }} · {{ store.store_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<style>
+  .receipt { width: 80mm; max-width: 100%; margin: 0 auto; background: #fff; color: #000; padding: 4mm; font: 12px/1.35 ui-monospace, "Cascadia Mono", Consolas, monospace; }
+  .receipt h1 { font-size: 16px; text-align: center; margin: 0; }
+  .receipt .c { text-align: center; } .receipt .r { text-align: right; }
+  .receipt table { width: 100%; border-collapse: collapse; }
+  .receipt td, .receipt th { padding: 1px 0; border: 0; background: none; font-size: 12px; color: #000; text-transform: none; letter-spacing: 0; }
+  .receipt hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+  .receipt .big { font-size: 16px; font-weight: 800; }
+  .receipt .qr svg { width: 34mm; height: 34mm; }
+  .actions { max-width: 420px; margin: 1rem auto; padding: 0 16px; }
+  @page { size: 80mm auto; margin: 0; }
+  @media print { .actions { display: none; } body { background: #fff; } }
+</style>
+</head>
+<body>
+<div class="receipt">
+  <h1>{{ store.store_name }}</h1>
+  {% if store.address %}<div class="c">{{ store.address }}</div>{% endif %}
+  {% if store.phone %}<div class="c">Ph: {{ store.phone }}</div>{% endif %}
+  {% if store.gstin %}<div class="c">GSTIN: {{ store.gstin }}</div>{% endif %}
+  <hr>
+  <div class="c"><b>{{ 'TAX INVOICE' if sale.taxed and store.gstin else 'BILL OF SUPPLY' if store.gstin else 'CASH MEMO' }}</b>{% if sale.status == 'cancelled' %} — CANCELLED{% endif %}</div>
+  <table><tr><td>Bill: {{ sale.number }}</td><td class="r">{{ sale.created_at.strftime('%d-%m-%Y %I:%M %p') }}</td></tr>
+  <tr><td colspan="2">{{ sale.customer_name }}{% if sale.party and sale.party.phone %} · {{ sale.party.phone }}{% endif %}</td></tr></table>
+  <hr>
+  <table>
+    <tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amt</th></tr>
+    {% for item in sale.items %}
+    <tr><td colspan="4">{{ item.name }}</td></tr>
+    <tr><td class="small">{% if item.mrp > item.rate %}MRP {{ item.mrp|inr }}{% endif %}</td><td class="r">{{ item.qty|qty }}</td><td class="r">{{ item.rate|inr }}</td><td class="r">{{ item.amount|inr }}</td></tr>
+    {% endfor %}
+  </table>
+  <hr>
+  <table>
+    <tr><td>Items: {{ sale.items|length }} · Qty: {{ sale.total_qty|qty }}</td><td class="r">{{ sale.gross|inr }}</td></tr>
+    {% if sale.discount > 0 %}<tr><td>Discount</td><td class="r">-{{ sale.discount|inr }}</td></tr>{% endif %}
+    {% if sale.round_off != 0 %}<tr><td>Round off</td><td class="r">{{ sale.round_off|inr }}</td></tr>{% endif %}
+    <tr class="big"><td>NET ₹</td><td class="r">{{ sale.net|inr }}</td></tr>
+    <tr><td>{{ sale.payment_mode|upper }}</td><td class="r">Paid {{ sale.paid|inr }}</td></tr>
+    {% if sale.due > 0 %}<tr><td><b>Balance due</b></td><td class="r"><b>{{ sale.due|inr }}</b></td></tr>{% endif %}
+  </table>
+  {% if sale.taxed and sale.tax > 0 %}
+  <hr>
+  <table>
+    <tr><th>GST%</th><th class="r">Taxable</th><th class="r">CGST</th><th class="r">SGST</th></tr>
+    {% for rate, (taxable, cgst, sgst) in sale.tax_summary().items() if cgst + sgst > 0 %}
+    <tr><td>{{ rate|qty }}%</td><td class="r">{{ taxable|inr }}</td><td class="r">{{ cgst|inr }}</td><td class="r">{{ sgst|inr }}</td></tr>
+    {% endfor %}
+  </table>
+  {% endif %}
+  {% if sale.savings > 0 %}<hr><div class="c"><b>You saved ₹{{ sale.savings|inr }}!</b></div>{% endif %}
+  {% if sale.due > 0 %}{% set qr = upi_qr(sale.due, 'Bill %s' % sale.number) %}{% if qr %}<hr><div class="c qr">{{ qr }}<div>Scan to pay ₹{{ sale.due|inr }}</div></div>{% endif %}{% endif %}
+  <hr>
+  {% if store.bill_footer %}<div class="c">{{ store.bill_footer }}</div>{% endif %}
+  {% if sale.cashier_name %}<div class="c small">Cashier: {{ sale.cashier_name }}</div>{% endif %}
+</div>
+
+<div class="actions">
+  <div class="grid cols-2">
+    <button onclick="window.print()">🖨 Print again</button>
+    <a class="btn secondary" href="{{ url_for('sales.pos') }}" id="new-bill">+ New bill <span class="kbd">F2</span></a>
+  </div>
+  <form method="get" action="{{ url_for('sales.whatsapp', sale_id=sale.id) }}" target="_blank" class="card" id="whatsapp" style="margin-top:1rem">
+    <label for="phone">Send bill on WhatsApp</label>
+    <div class="row">
+      <input id="phone" name="phone" class="field" inputmode="tel" placeholder="Customer mobile number" value="{{ sale.party.phone if sale.party and sale.party.phone else '' }}">
+      <button class="btn whatsapp">Send</button>
+    </div>
+  </form>
+  <p class="right small"><a href="{{ url_for('sales.invoice', sale_id=sale.id) }}">A4 GST invoice</a> · <a href="{{ url_for('sales.bill', sale_id=sale.id) }}">Bill details</a></p>
+</div>
+<script>
+  document.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); document.getElementById('new-bill').click(); } });
+  {% if request.args.get('autoprint') %}window.addEventListener('load', () => window.print());{% endif %}
+</script>
+</body>
+</html>

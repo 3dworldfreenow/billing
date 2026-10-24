@@ -1,8 +1,53 @@
 import os
+import secrets
+from datetime import timedelta
+from urllib.parse import urlencode
 
-from flask import Flask
+import segno
+from flask import Flask, g
+from markupsafe import Markup
 
-from .models import db
+from .models import DEFAULT_TAX_SLABS, D, Setting, TaxSlab, db, money
+
+
+def inr(value):
+    """Indian digit grouping: 1234567.5 -> 12,34,567.50"""
+    value = money(value)
+    sign = "-" if value < 0 else ""
+    whole, frac = f"{abs(value):.2f}".split(".")
+    head, tail = whole[:-3], whole[-3:]
+    groups = []
+    while len(head) > 2:
+        groups.insert(0, head[-2:])
+        head = head[:-2]
+    if head:
+        groups.insert(0, head)
+    return sign + ",".join(groups + [tail]) + "." + frac
+
+
+def qty(value):
+    return f"{D(value).normalize():f}"
+
+
+def upi_qr(amount, note=""):
+    """Inline SVG QR code that opens any UPI app with the amount filled in."""
+    store = Setting.get()
+    if not store.upi_id or D(amount) <= 0:
+        return None
+    uri = "upi://pay?" + urlencode(
+        {"pa": store.upi_id, "pn": store.store_name, "am": f"{money(amount)}", "cu": "INR", "tn": note}
+    )
+    return Markup(segno.make(uri, error="m").svg_inline(scale=4, border=2))
+
+
+def _instance_secret(folder):
+    """A random key kept next to the database, so logins survive restarts."""
+    path = os.path.join(folder, "secret_key")
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            f.write(secrets.token_hex(32))
+    with open(path) as f:
+        return f.read().strip()
 
 
 def create_app(config=None):
@@ -12,22 +57,35 @@ def create_app(config=None):
         SQLALCHEMY_DATABASE_URI=os.environ.get(
             "DATABASE_URL", f"sqlite:///{os.path.join(app.instance_path, 'billing.db')}"
         ),
+        MAX_CONTENT_LENGTH=20 * 1024 * 1024,  # product import files
+        PERMANENT_SESSION_LIFETIME=timedelta(days=30),
     )
     if config:
         app.config.update(config)
 
     os.makedirs(app.instance_path, exist_ok=True)
+    if app.config["SECRET_KEY"] == "dev" and not app.testing:
+        app.config["SECRET_KEY"] = _instance_secret(app.instance_path)
     db.init_app(app)
 
-    from .routes import bp
+    from .views import auth, parties, products, purchases, reports, sales, settings, stock
 
-    app.register_blueprint(bp)
+    for module in (auth, sales, purchases, products, parties, stock, reports, settings):
+        app.register_blueprint(module.bp)
+    app.before_request(auth.load_user)
 
     with app.app_context():
         db.create_all()
+        if Setting.get() is None:
+            db.session.add(Setting(id=1))
+            db.session.add_all(TaxSlab(rate=rate, name=name) for rate, name in DEFAULT_TAX_SLABS)
+            db.session.commit()
 
-    @app.template_filter("money")
-    def money(value):
-        return f"{value:,.2f}"
+    app.add_template_filter(inr)
+    app.add_template_filter(qty)
+
+    @app.context_processor
+    def globals_():
+        return {"store": Setting.get(), "current_user": g.get("user"), "upi_qr": upi_qr}
 
     return app

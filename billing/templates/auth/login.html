@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block public %}
+<form method="post" class="card">
+  <h1 style="text-align:center">🛒 {{ store.store_name }}</h1>
+  <label for="username">Username</label><input id="username" name="username" autocomplete="username" autofocus required autocapitalize="none">
+  <label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required>
+  <p><button style="width:100%">Log in</button></p>
+</form>
+{% endblock %}

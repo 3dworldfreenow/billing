@@ -1,16 +1,34 @@
 {% extends "base.html" %}
+{% from "_macros.html" import pager %}
 {% block title %}Products{% endblock %}
 {% block content %}
-<div class="row"><h1>Products</h1><a class="btn" href="{{ url_for('billing.product_form') }}">New product</a></div>
+<div class="page-head">
+  <h1>Products <span class="muted small">{{ count }}</span></h1>
+  <div class="row">
+    <a class="btn secondary" href="{{ url_for('products.import_') }}">⬆ Import</a>
+    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='xlsx') }}">⬇ Excel</a>
+    <a class="btn secondary" href="{{ url_for('products.export', q=q, format='csv') }}">⬇ CSV</a>
+    <a class="btn" href="{{ url_for('products.edit') }}">+ New product</a>
+  </div>
+</div>
 <div class="card">
+  <form method="get" class="scanbar">
+    <input name="q" value="{{ q }}" data-scan placeholder="Search by name, brand, category or scan a barcode" aria-label="Search products">
+    <button>Search</button>
+  </form>
+</div>
+<div class="card table-wrap">
   <table>
-    <tr><th>Name</th><th>Barcode</th><th class="num">Price</th><th></th></tr>
+    <tr><th>Name</th><th>Barcode</th><th>Category</th><th>Brand</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Cost</th><th class="num">GST</th><th class="num">Stock</th></tr>
     {% for p in products %}
-    <tr><td>{{ p.name }}</td><td><code>{{ p.barcode or '' }}</code></td><td class="num">{{ p.unit_price|money }}</td>
-        <td><a href="{{ url_for('billing.product_form', product_id=p.id) }}">Edit</a></td></tr>
+    <tr><td><a href="{{ url_for('products.edit', product_id=p.id) }}">{{ p.name }}</a></td><td><code>{{ p.barcode or '' }}</code></td>
+      <td>{{ p.category or '' }}</td><td>{{ p.brand or '' }}</td><td class="num">{{ p.mrp|inr }}</td><td class="num">{{ p.sale_rate|inr }}</td>
+      <td class="num">{{ p.purchase_rate|inr }}</td><td class="num">{{ p.gst_rate|qty }}%</td>
+      <td class="num">{% if p.min_stock > 0 and p.stock <= p.min_stock %}<span class="badge bad">{{ p.stock|qty }}</span>{% else %}{{ p.stock|qty }}{% endif %} <span class="muted small">{{ p.unit }}</span></td></tr>
     {% else %}
-    <tr><td colspan="4">No products yet.</td></tr>
+    <tr><td colspan="9" class="empty">{% if q %}No products match “{{ q }}”. <a href="{{ url_for('products.edit', barcode=q if q.isdigit() else None) }}">Create one</a>{% else %}No products yet. <a href="{{ url_for('products.import_') }}">Import from Excel</a> or <a href="{{ url_for('products.edit') }}">add one</a>.{% endif %}</td></tr>
     {% endfor %}
   </table>
+  {{ pager(page, pages, 'products.index') }}
 </div>
 {% endblock %}

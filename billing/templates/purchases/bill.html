@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% from "_macros.html" import scanbox, picker, camera_script %}
+{% set draft = purchase.status == 'draft' %}
+{% set unknown = request.args.get('unknown') %}
+{% block title %}{{ 'New purchase' if draft else 'Purchase ' ~ purchase.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <h1>{% if draft %}New purchase{% else %}Purchase {{ purchase.number }} <span class="badge {{ purchase.status }}">{{ purchase.status }}</span>{% endif %}</h1>
+  <div class="row no-print">
+    <a class="btn secondary" href="{{ url_for('purchases.index') }}">All purchases</a>
+    {% if not draft %}<button class="secondary" onclick="window.print()">🖨 Print</button><a class="btn" href="{{ url_for('purchases.new') }}">+ New purchase</a>{% endif %}
+  </div>
+</div>
+
+{% if draft %}
+<div class="card">{{ scanbox(url_for('purchases.scan', purchase_id=purchase.id)) }}
+  {% if unknown and current_user.can('products') %}
+  <p><a class="btn" href="{{ url_for('products.edit', barcode=unknown, add_to='purchase:%d' % purchase.id) }}">+ Create product with barcode {{ unknown }}</a></p>
+  {% endif %}
+</div>
+{% set create = url_for('products.edit', add_to='purchase:%d' % purchase.id) if current_user.can('products') else None %}
+{{ picker(matches, url_for('purchases.add', purchase_id=purchase.id), add_qty, q, create) }}
+{% endif %}
+
+<form method="post" action="{{ url_for('purchases.update', purchase_id=purchase.id) }}" data-autosubmit>
+  {% if draft %}<button name="action" value="update" data-update hidden>Update</button>{% endif %}
+  <div class="card">
+    <div class="grid cols-4">
+      <div><label for="party_id">Supplier</label>
+        {% if draft %}<select id="party_id" name="party_id"><option value="">Choose…</option>
+          {% for s in suppliers %}<option value="{{ s.id }}" {{ 'selected' if purchase.party_id == s.id }}>{{ s.name }}</option>{% endfor %}</select>
+          {% if current_user.can('parties') %}<a class="small" href="{{ url_for('parties.edit', kind='supplier') }}">+ New supplier</a>{% endif %}
+        {% else %}<div>{{ purchase.supplier_name }}</div>{% endif %}</div>
+      <div><label for="bill_no">Supplier bill no.</label>{% if draft %}<input id="bill_no" name="bill_no" value="{{ purchase.bill_no or '' }}">{% else %}<div>{{ purchase.bill_no or '—' }}</div>{% endif %}</div>
+      <div><label for="bill_date">Bill date</label>{% if draft %}<input id="bill_date" type="date" name="bill_date" value="{{ purchase.bill_date or '' }}">{% else %}<div>{{ purchase.bill_date.strftime('%d-%m-%Y') if purchase.bill_date else '—' }}</div>{% endif %}</div>
+      <div><label>Payment</label>{% if draft %}<select name="payment_mode">{% for m in modes %}<option value="{{ m }}" {{ 'selected' if purchase.payment_mode == m }}>{{ m|upper }}</option>{% endfor %}</select>{% else %}<div>{{ purchase.payment_mode|upper }}</div>{% endif %}</div>
+    </div>
+  </div>
+
+  <div class="card table-wrap">
+    <table>
+      <thead><tr><th>Product</th><th class="num">Stock</th><th class="num">Qty</th><th class="num">Free</th><th class="num">Rate (ex-GST)</th><th class="num">Disc %</th><th class="num">GST %</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Amount</th>{% if draft %}<th></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for item in purchase.items %}
+      <tr class="{{ 'flash-row' if item.id == last }}">
+        <td>{{ item.product.name }}<div class="small muted">{{ item.product.barcode or '' }}</div></td>
+        <td class="num muted">{{ item.product.stock|qty }}</td>
+        {% if draft %}
+          {% for f in ('qty', 'free_qty', 'rate', 'disc_pct') %}<td class="num"><input name="{{ f }}_{{ item.id }}" value="{{ item[f]|qty if f in ('qty', 'free_qty', 'disc_pct') else item[f] }}" inputmode="decimal" data-recalc aria-label="{{ f }}"></td>{% endfor %}
+          <td class="num"><select name="gst_rate_{{ item.id }}" data-recalc style="min-width:80px">
+            {% set ns = namespace(found=false) %}
+            {% for s in slabs %}<option value="{{ s.rate }}" {% if s.rate == item.gst_rate %}selected{% set ns.found = true %}{% endif %}>{{ s.rate|qty }}%</option>{% endfor %}
+            {% if not ns.found %}<option value="{{ item.gst_rate }}" selected>{{ item.gst_rate|qty }}%</option>{% endif %}
+          </select></td>
+          <td class="num"><input name="mrp_{{ item.id }}" value="{{ item.mrp }}" inputmode="decimal" data-recalc aria-label="MRP"></td>
+          <td class="num"><input name="sale_rate_{{ item.id }}" value="{{ item.sale_rate }}" inputmode="decimal" data-recalc aria-label="Sale rate"></td>
+        {% else %}
+          <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.free_qty|qty }}</td><td class="num">{{ item.rate|inr }}</td><td class="num">{{ item.disc_pct|qty }}</td>
+          <td class="num">{{ item.gst_rate|qty }}%</td><td class="num">{{ item.mrp|inr }}</td><td class="num">{{ item.sale_rate|inr }}</td>
+        {% endif %}
+        <td class="num"><b>{{ item.amount|inr }}</b><div class="small muted">GST {{ item.tax|inr }}</div></td>
+        {% if draft %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">✕</button></td>{% endif %}
+      </tr>
+      {% else %}
+      <tr><td colspan="11" class="empty">Scan products from the supplier's bill.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="row spread">
+      <div class="grid cols-3" style="flex:1">
+        <div class="stat"><div class="label">Taxable</div><div class="value">₹{{ purchase.gross|inr }}</div></div>
+        <div class="stat"><div class="label">GST (CGST + SGST)</div><div class="value">₹{{ purchase.tax|inr }}</div></div>
+        <div class="stat"><div class="label">Net (round off {{ purchase.round_off|inr }})</div><div class="value" style="color:var(--brand)">₹{{ purchase.net|inr }}</div></div>
+      </div>
+      {% if draft %}
+      <div class="row">
+        {% if purchase.payment_mode == 'credit' %}<div><label for="paid">Paid now</label><input id="paid" name="paid" value="{{ purchase.paid }}" style="width:120px"></div>{% endif %}
+        <button class="success big" name="action" value="save" data-key="F8">Save purchase <span class="kbd">F8</span></button>
+        <button class="danger" form="discard" onclick="return confirm('Discard this purchase?')">Discard</button>
+      </div>
+      {% else %}
+      <div>{% if purchase.due > 0 %}<span class="badge bad">Due ₹{{ purchase.due|inr }}</span>{% endif %}
+        {% if purchase.status == 'saved' %}<button class="danger" form="cancel" onclick="return confirm('Cancel this purchase? Stock will be reduced.')">Cancel purchase</button>{% endif %}</div>
+      {% endif %}
+    </div>
+    {% if draft %}<p class="small muted">Saving adds the quantity (and free quantity) to stock and updates each product's purchase rate, GST, MRP and sale rate. Use a negative quantity to return goods.</p>{% endif %}
+  </div>
+</form>
+{% if draft %}<form id="discard" method="post" action="{{ url_for('purchases.discard', purchase_id=purchase.id) }}"></form>
+{% else %}<form id="cancel" method="post" action="{{ url_for('purchases.cancel', purchase_id=purchase.id) }}"></form>{% endif %}
+{% endblock %}
+{% block scripts %}{% if draft %}{{ camera_script() }}{% endif %}{% endblock %}

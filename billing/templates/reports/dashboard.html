@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Dashboard</h1><span class="muted">{{ store.store_name }}</span></div>
+<div class="grid cols-4">
+  <div class="card stat"><div class="label">Today's sales</div><div class="value">₹{{ today.net|inr }}</div><div class="small muted">{{ today.bills }} bills</div></div>
+  <div class="card stat"><div class="label">Today's profit</div><div class="value">₹{{ today.profit|inr }}</div><div class="small muted">Cash ₹{{ today.cash|inr }} · UPI ₹{{ today.upi|inr }}</div></div>
+  <div class="card stat"><div class="label">This month's sales</div><div class="value">₹{{ month.net|inr }}</div><div class="small muted">{{ month.bills }} bills · profit ₹{{ month.profit|inr }}</div></div>
+  <div class="card stat"><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div><div class="small muted">Credit given today ₹{{ today.due|inr }}</div></div>
+</div>
+<div class="grid cols-2">
+  <div class="card">
+    <h2>Reports</h2>
+    {% for endpoint, title, desc in reports %}
+    <div style="padding:.45rem 0;border-bottom:1px solid var(--line)"><a href="{{ url_for(endpoint) }}"><b>{{ title }}</b></a><div class="small muted">{{ desc }}</div></div>
+    {% endfor %}
+  </div>
+  <div>
+    <div class="card">
+      <h2>Low stock {% if low_count %}<span class="badge bad">{{ low_count }}</span>{% endif %}</h2>
+      {% for p in low_stock %}<div class="row spread small" style="padding:.2rem 0"><span>{{ p.name }}</span><span class="badge bad">{{ p.stock|qty }} / {{ p.min_stock|qty }}</span></div>
+      {% else %}<p class="muted small">Nothing below its alert level. Set "Low-stock alert at" on products to use this.</p>{% endfor %}
+      {% if low_count > low_stock|length %}<a class="small" href="{{ url_for('reports.stock', low=1) }}">See all {{ low_count }}</a>{% endif %}
+    </div>
+    <div class="card">
+      <h2>Recent bills</h2>
+      {% for s in recent %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('sales.bill', sale_id=s.id) }}">Bill {{ s.number }} · {{ s.customer_name }}</a><span>₹{{ s.net|inr }} · {{ s.created_at.strftime('%I:%M %p') }}</span></div>
+      {% else %}<p class="muted small">No bills yet.</p>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

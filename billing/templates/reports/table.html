@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import date_filter, pager %}
+{% block title %}{{ title }}{% endblock %}
+{% macro cell(value, kind) -%}
+  {%- set v = value.v if value is mapping else value -%}
+  {%- set text = (v|inr if kind == 'money' and v != '' else v|qty if kind == 'qty' and v != '' else v) -%}
+  {%- if value is mapping %}<a href="{{ value.url }}">{{ text }}</a>{% else %}{{ text }}{% endif -%}
+{%- endmacro %}
+{% block content %}
+{% set args = request.args.to_dict() %}
+<div class="page-head">
+  <div><h1>{{ title }}</h1>{% if date_from %}<div class="muted small">{{ date_from.strftime('%d %b %Y') }} – {{ date_to.strftime('%d %b %Y') }}</div>{% endif %}</div>
+  <div class="row no-print">
+    {% set _ = args.update(export='xlsx') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ Excel</a>
+    {% set _ = args.update(export='csv') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ CSV</a>
+    <button class="secondary" onclick="window.print()">🖨 Print</button>
+    <a class="btn secondary" href="{{ url_for('reports.dashboard') }}">All reports</a>
+  </div>
+</div>
+{% if filters == 'dates' %}<div class="card no-print">{{ date_filter(date_from, date_to) }}</div>
+{% elif filters == 'stock' %}
+<form method="get" class="card row no-print">
+  <div class="field"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Name, brand or barcode"></div>
+  <div><label for="category">Category</label><select id="category" name="category"><option value="">All</option>{% for c in categories %}<option {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}</select></div>
+  <label class="check"><input type="checkbox" name="low" value="1" {{ 'checked' if low }}> Low stock only</label>
+  <button>Show</button>
+</form>
+{% endif %}
+<div class="card table-wrap">
+  <table>
+    <thead><tr>{% for label, kind in columns %}<th class="{{ 'num' if kind != 'text' }}">{{ label }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for row in rows %}
+      <tr>{% for value in row %}{% set kind = columns[loop.index0][1] %}<td class="{{ 'num' if kind != 'text' }}">{{ cell(value, kind) }}</td>{% endfor %}</tr>
+    {% else %}
+      <tr><td colspan="{{ columns|length }}" class="empty">Nothing to show for this period.</td></tr>
+    {% endfor %}
+    {% if totals and rows %}<tr class="total">{% for value in totals %}{% set kind = columns[loop.index0][1] %}<td class="{{ 'num' if kind != 'text' }}">{{ cell(value, kind) }}</td>{% endfor %}</tr>{% endif %}
+    </tbody>
+  </table>
+  {% if note %}<p class="small muted">{{ note }}</p>{% endif %}
+  {% if pages %}{{ pager(page, pages, request.endpoint) }}{% endif %}
+</div>
+{% endblock %}

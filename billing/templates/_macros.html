@@ -1,0 +1,52 @@
+{% macro date_filter(date_from, date_to, extra=None) %}
+<form method="get" class="row no-print">
+  <div><label for="from">From</label><input type="date" id="from" name="from" value="{{ date_from }}"></div>
+  <div><label for="to">To</label><input type="date" id="to" name="to" value="{{ date_to }}"></div>
+  {{ caller() if caller }}
+  <button>Show</button>
+</form>
+{% endmacro %}
+
+{% macro pager(page, pages, endpoint) %}
+{% if pages > 1 %}
+<div class="pager no-print">
+  {% set args = request.args.to_dict() %}
+  {% if page > 1 %}{% set _ = args.update(page=page - 1) %}<a class="btn secondary" href="{{ url_for(endpoint, **args) }}">← Prev</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}{% set _ = args.update(page=page + 1) %}<a class="btn secondary" href="{{ url_for(endpoint, **args) }}">Next →</a>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro scanbox(action, placeholder='Scan barcode or type product name, then Enter') %}
+<form method="post" action="{{ action }}" class="no-print">
+  <div class="scanbar">
+    <input id="code" name="code" data-scan data-submit-on-scan autocomplete="off" placeholder="{{ placeholder }}" aria-label="Scan barcode or search">
+    <button>Add</button>
+    <button type="button" class="secondary" data-camera="code">📷 Camera</button>
+  </div>
+  <div class="small muted" style="margin-top:.35rem">Tip: <b>3*barcode</b> adds 3 at once · <span class="kbd">F2</span> jumps here · negative qty = return</div>
+  <div id="camera"></div>
+</form>
+{% endmacro %}
+
+{% macro picker(matches, action, qty, q, create_url=None) %}
+{% if q %}
+<div class="card">
+  <h2>Products matching “{{ q }}”</h2>
+  {% if matches %}
+  <table>
+    <tr><th>Product</th><th>Barcode</th><th class="num">Stock</th><th class="num">MRP</th><th class="num">Rate</th><th></th></tr>
+    {% for p in matches %}
+    <tr><td>{{ p.name }}</td><td><code>{{ p.barcode or '' }}</code></td><td class="num">{{ p.stock|qty }}</td>
+        <td class="num">{{ p.mrp|inr }}</td><td class="num">{{ p.sale_rate|inr }}</td>
+        <td class="right"><form method="post" action="{{ action }}"><input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="qty" value="{{ qty }}"><button {{ 'autofocus' if loop.first }}>Add</button></form></td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">Nothing found.</p>{% endif %}
+  {% if create_url %}<p><a href="{{ create_url }}">+ Create a new product</a></p>{% endif %}
+</div>
+{% endif %}
+{% endmacro %}
+
+{% macro camera_script() %}<script src="{{ url_for('static', filename='html5-qrcode.min.js') }}"></script>{% endmacro %}

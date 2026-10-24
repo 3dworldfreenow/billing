@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ user.name or 'New user' }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit user' if user.id else 'New user' }}</h1><a class="btn secondary" href="{{ url_for('auth.users') }}">All users</a></div>
+<form method="post" class="card" style="max-width:640px">
+  <div class="grid cols-2">
+    <div><label for="name">Name</label><input id="name" name="name" value="{{ user.name or '' }}" required></div>
+    <div><label for="username">Username</label><input id="username" name="username" value="{{ user.username or '' }}" required autocapitalize="none"></div>
+  </div>
+  <label for="password">{{ 'New password (leave blank to keep)' if user.id else 'Password (6+ characters)' }}</label>
+  <input id="password" type="password" name="password" autocomplete="new-password" {{ '' if user.id else 'required' }}>
+  <label>Access</label>
+  <label class="check"><input type="checkbox" name="is_admin" value="1" {{ 'checked' if user.is_admin }}> <b>Admin</b>: everything, including managing users</label>
+  <div class="grid cols-2">
+    {% for key, label in permissions.items() %}
+    <label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {{ 'checked' if key in user.permissions.split(',') }}> {{ label }}</label>
+    {% endfor %}
+  </div>
+  <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if user.active }}> Active (can log in)</label>
+  <p><button>Save user</button></p>
+</form>
+{% endblock %}

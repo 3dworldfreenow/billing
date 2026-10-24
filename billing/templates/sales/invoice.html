@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoice {{ sale.number }} · {{ store.store_name }}</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
+<style>
+  body { background: #fff; }
+  .inv { max-width: 210mm; margin: 0 auto; padding: 12mm; font-size: 13px; }
+  .inv th, .inv td { border: 1px solid #98a2b3; padding: 4px 6px; background: none; color: #000; }
+  .inv th { font-size: 11px; }
+  .inv .head { display: flex; justify-content: space-between; gap: 1rem; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 8px; }
+  @page { size: A4; margin: 0; }
+  @media print { .no-print { display: none; } }
+</style>
+</head>
+<body>
+<div class="inv">
+  <div class="head">
+    <div><h1>{{ store.store_name }}</h1>
+      {% if store.address %}<div>{{ store.address }}</div>{% endif %}
+      {% if store.phone %}<div>Phone: {{ store.phone }}</div>{% endif %}
+      {% if store.gstin %}<div><b>GSTIN: {{ store.gstin }}</b></div>{% endif %}</div>
+    <div class="right"><h2 style="margin:0">{{ 'TAX INVOICE' if sale.taxed else 'BILL OF SUPPLY' }}</h2>
+      <div>Invoice No: <b>{{ sale.number }}</b></div><div>Date: {{ sale.created_at.strftime('%d-%m-%Y') }}</div>
+      {% if sale.status == 'cancelled' %}<div class="badge cancelled">Cancelled</div>{% endif %}</div>
+  </div>
+  <p><b>Bill to:</b> {{ sale.customer_name }}
+    {% if sale.party %}{% if sale.party.address %}<br>{{ sale.party.address }}{% endif %}{% if sale.party.phone %}<br>Phone: {{ sale.party.phone }}{% endif %}{% if sale.party.gstin %}<br>GSTIN: {{ sale.party.gstin }}{% endif %}{% endif %}</p>
+  <table>
+    <tr><th>#</th><th>Description</th><th>HSN</th><th class="num">Qty</th><th class="num">MRP</th><th class="num">Rate</th><th class="num">Disc%</th><th class="num">GST%</th><th class="num">Taxable</th><th class="num">Amount</th></tr>
+    {% for item in sale.items %}
+    <tr><td>{{ loop.index }}</td><td>{{ item.name }}</td><td>{{ item.product.hsn if item.product and item.product.hsn else '' }}</td>
+      <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.mrp|inr }}</td><td class="num">{{ item.rate|inr }}</td>
+      <td class="num">{{ item.disc_pct|qty }}</td><td class="num">{{ item.gst_rate|qty if sale.taxed else '-' }}</td>
+      <td class="num">{{ item.revenue|inr }}</td><td class="num">{{ item.amount|inr }}</td></tr>
+    {% endfor %}
+  </table>
+  <div class="grid cols-2" style="margin-top:10px;align-items:start">
+    <div>
+      {% if sale.taxed %}
+      <table>
+        <tr><th>GST%</th><th class="num">Taxable</th><th class="num">CGST</th><th class="num">SGST</th><th class="num">Total tax</th></tr>
+        {% for rate, (taxable, cgst, sgst) in sale.tax_summary().items() %}
+        <tr><td>{{ rate|qty }}%</td><td class="num">{{ taxable|inr }}</td><td class="num">{{ cgst|inr }}</td><td class="num">{{ sgst|inr }}</td><td class="num">{{ (cgst + sgst)|inr }}</td></tr>
+        {% endfor %}
+      </table>
+      {% else %}<p class="small">Composition taxable person, not eligible to collect tax on supplies.</p>{% endif %}
+    </div>
+    <table>
+      <tr><td>Gross</td><td class="num">{{ sale.gross|inr }}</td></tr>
+      {% if sale.discount > 0 %}<tr><td>Discount</td><td class="num">-{{ sale.discount|inr }}</td></tr>{% endif %}
+      {% if sale.taxed %}<tr><td>GST included</td><td class="num">{{ sale.tax|inr }}</td></tr>{% endif %}
+      <tr><td>Round off</td><td class="num">{{ sale.round_off|inr }}</td></tr>
+      <tr><td><b>Net amount</b></td><td class="num"><b>₹{{ sale.net|inr }}</b></td></tr>
+      <tr><td>Paid ({{ sale.payment_mode|upper }})</td><td class="num">{{ sale.paid|inr }}</td></tr>
+      {% if sale.due > 0 %}<tr><td><b>Balance due</b></td><td class="num"><b>{{ sale.due|inr }}</b></td></tr>{% endif %}
+    </table>
+  </div>
+  <div class="row spread" style="margin-top:2rem;align-items:flex-end">
+    <div class="small">{{ store.bill_footer or '' }}</div>
+    <div class="right">For {{ store.store_name }}<br><br><br>Authorised signatory</div>
+  </div>
+  <p class="no-print" style="margin-top:1.5rem"><button onclick="window.print()">🖨 Print</button> <a class="btn secondary" href="{{ url_for('sales.bill', sale_id=sale.id) }}">Back</a></p>
+</div>
+</body>
+</html>

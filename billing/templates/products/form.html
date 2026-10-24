@@ -1,21 +1,47 @@
 {% extends "base.html" %}
-{% block title %}{{ 'Edit' if product.id else 'New' }} product{% endblock %}
+{% from "_macros.html" import camera_script %}
+{% block title %}{{ product.name or 'New product' }}{% endblock %}
 {% block content %}
-<h1>{{ 'Edit' if product.id else 'New' }} product</h1>
+<div class="page-head">
+  <h1>{{ 'Edit product' if product.id else 'New product' }}</h1>
+  <a class="btn secondary" href="{{ url_for('products.index') }}">All products</a>
+</div>
 <form method="post" class="card">
-  <label for="name">Name</label><input id="name" name="name" value="{{ product.name or '' }}" required>
-  <label for="barcode">Barcode</label>
-  <input id="barcode" name="barcode" value="{{ product.barcode or '' }}" placeholder="Scan the product's barcode here">
-  <label for="unit_price">Unit price</label>
-  <input id="unit_price" name="unit_price" type="number" step="0.01" min="0" value="{{ product.unit_price if product.unit_price is not none else '' }}" required>
-  <p><button>Save</button></p>
+  <div class="grid cols-2">
+    <div><label for="name">Name *</label><input id="name" name="name" value="{{ product.name or '' }}" required {{ 'autofocus' if product.barcode and not product.id }}></div>
+    <div><label for="barcode">Barcode</label>
+      <div class="scanbar"><input id="barcode" name="barcode" value="{{ product.barcode or '' }}" data-barcode-field {{ 'autofocus' if not product.barcode }} placeholder="Scan the product's barcode" autocomplete="off">
+      <button type="button" class="secondary" data-camera="barcode">📷 Camera</button></div>
+      <div id="camera"></div></div>
+  </div>
+  <div class="grid cols-4">
+    <div><label for="category">Category</label><input id="category" name="category" list="categories" value="{{ product.category or '' }}">
+      <datalist id="categories">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
+    <div><label for="brand">Brand / company</label><input id="brand" name="brand" value="{{ product.brand or '' }}"></div>
+    <div><label for="hsn">HSN code</label><input id="hsn" name="hsn" value="{{ product.hsn or '' }}"></div>
+    <div><label for="unit">Unit</label><select id="unit" name="unit">{% for u in ('pcs', 'kg', 'g', 'ltr', 'ml', 'pack', 'box', 'dozen') %}<option {{ 'selected' if product.unit == u }}>{{ u }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="grid cols-4">
+    <div><label for="mrp">MRP (₹)</label><input id="mrp" name="mrp" inputmode="decimal" value="{{ product.mrp if product.mrp is not none else '' }}"></div>
+    <div><label for="sale_rate">Sale rate (₹, incl. GST)</label><input id="sale_rate" name="sale_rate" inputmode="decimal" value="{{ product.sale_rate if product.sale_rate is not none else '' }}"></div>
+    <div><label for="purchase_rate">Purchase rate (₹, before GST)</label><input id="purchase_rate" name="purchase_rate" inputmode="decimal" value="{{ product.purchase_rate if product.purchase_rate is not none else '' }}"></div>
+    <div><label for="gst_rate">GST slab</label><select id="gst_rate" name="gst_rate">
+      {% for s in slabs %}<option value="{{ s.rate }}" {{ 'selected' if product.gst_rate is not none and s.rate == product.gst_rate }}>{{ s.name }}</option>{% endfor %}
+    </select></div>
+  </div>
+  <div class="grid cols-4">
+    <div><label for="stock">{{ 'Current stock' if product.id else 'Opening stock' }}</label><input id="stock" name="stock" inputmode="decimal" value="{{ product.stock|qty if product.stock is not none else '0' }}"></div>
+    <div><label for="min_stock">Low-stock alert at</label><input id="min_stock" name="min_stock" inputmode="decimal" value="{{ product.min_stock|qty if product.min_stock is not none else '0' }}"></div>
+  </div>
+  <div class="row" style="margin-top:1rem">
+    <button>Save</button>
+    {% if not request.args.get('add_to') %}<button class="secondary" name="next" value="new">Save &amp; add another</button>{% endif %}
+  </div>
 </form>
+{% if product.id %}
+<form method="post" action="{{ url_for('products.delete', product_id=product.id) }}" onsubmit="return confirm('Delete {{ product.name }}?')">
+  <button class="danger">Delete product</button>
+</form>
+{% endif %}
 {% endblock %}
-{% block scripts %}
-<script>
-  // Hardware scanners press Enter after the code; don't let that submit a half-filled form.
-  document.getElementById('barcode').addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); document.getElementById('unit_price').focus(); }
-  });
-</script>
-{% endblock %}
+{% block scripts %}{{ camera_script() }}{% endblock %}

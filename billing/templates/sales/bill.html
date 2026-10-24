@@ -1,0 +1,128 @@
+{% extends "base.html" %}
+{% from "_macros.html" import scanbox, picker, camera_script %}
+{% set draft = sale.status == 'draft' %}
+{% block title %}{{ 'New bill' if draft else 'Bill ' ~ sale.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>{% if draft %}New bill{% else %}Bill {{ sale.number }} <span class="badge {{ sale.status }}">{{ sale.status }}</span>{% endif %}</h1>
+    <div class="muted small">{{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}{% if sale.cashier_name %} · Cashier: {{ sale.cashier_name }}{% endif %}</div>
+  </div>
+  <div class="row no-print">
+    {% if held %}<span class="muted small">Held bills:</span>
+      {% for h in held %}<a class="btn secondary" href="{{ url_for('sales.bill', sale_id=h.id) }}">#{{ h.id }} · {{ h.items|length }} item{{ 's' if h.items|length != 1 }} · ₹{{ h.net|inr }}</a>{% endfor %}
+    {% endif %}
+    {% if draft and sale.items %}<a class="btn secondary" href="{{ url_for('sales.pos') }}" title="Keep this bill and start another">⏸ Hold &amp; new</a>{% endif %}
+    {% if not draft %}<a class="btn" href="{{ url_for('sales.pos') }}" data-key="F2">+ New bill</a>{% endif %}
+  </div>
+</div>
+
+{% if draft %}
+<div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id)) }}</div>
+{% set create = url_for('products.edit', add_to='sale:%d' % sale.id) if current_user.can('products') else None %}
+{{ picker(matches, url_for('sales.add', sale_id=sale.id), add_qty, q, create) }}
+{% endif %}
+
+<form method="post" action="{{ url_for('sales.update', sale_id=sale.id) }}" data-autosubmit>
+  {% if draft %}<button name="action" value="update" data-update hidden>Update</button>{% endif %}
+  <div class="pos">
+    <div class="card table-wrap">
+      <table>
+        <thead><tr><th>#</th><th>Product</th><th class="num">Stock</th><th class="num">MRP</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Disc %</th><th class="num">Amount</th>{% if draft %}<th></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for item in sale.items %}
+        <tr class="{{ 'flash-row' if item.id == last }}">
+          <td class="muted">{{ loop.index }}</td>
+          <td>{{ item.name }}{% if item.product and item.product.barcode %}<div class="small muted">{{ item.product.barcode }}</div>{% endif %}</td>
+          <td class="num muted">{{ item.product.stock|qty if item.product else '' }}</td>
+          <td class="num">{{ item.mrp|inr }}</td>
+          {% if draft %}
+          <td class="num"><input name="qty_{{ item.id }}" value="{{ item.qty|qty }}" inputmode="decimal" data-recalc aria-label="Quantity"></td>
+          <td class="num"><input name="rate_{{ item.id }}" value="{{ item.rate }}" inputmode="decimal" data-recalc aria-label="Rate"></td>
+          <td class="num"><input name="disc_{{ item.id }}" value="{{ item.disc_pct|qty }}" inputmode="decimal" data-recalc style="min-width:55px" aria-label="Discount percent"></td>
+          {% else %}
+          <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.rate|inr }}</td><td class="num">{{ item.disc_pct|qty }}</td>
+          {% endif %}
+          <td class="num"><b>{{ item.amount|inr }}</b></td>
+          {% if draft %}<td><button class="link" name="action" value="remove:{{ item.id }}" title="Remove">✕</button></td>{% endif %}
+        </tr>
+        {% else %}
+        <tr><td colspan="9" class="empty">Scan a product to start the bill.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      <div class="muted small" style="margin-top:.5rem">{{ sale.items|length }} item{{ 's' if sale.items|length != 1 }} · total qty {{ sale.total_qty|qty }}</div>
+    </div>
+
+    <div class="card totals">
+      <label for="party_id">Customer</label>
+      {% if draft %}
+      <select id="party_id" name="party_id" onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))">
+        <option value="">Walk-in Customer</option>
+        {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if sale.party_id == c.id }}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>{% endfor %}
+      </select>
+      <details class="small" style="margin-top:.35rem"><summary>+ New customer</summary>
+        <div class="row" style="margin-top:.4rem">
+          <input form="quick-customer" name="name" placeholder="Name" class="field">
+          <input form="quick-customer" name="phone" placeholder="Mobile" inputmode="tel" class="field">
+          <button form="quick-customer" class="secondary">Add</button>
+        </div>
+      </details>
+      {% else %}
+      <div>{{ sale.customer_name }}{% if sale.party and sale.party.phone %} · {{ sale.party.phone }}{% endif %}</div>
+      {% endif %}
+
+      <div style="margin-top:.9rem">
+        <div class="line"><span>Gross</span><span>₹{{ sale.gross|inr }}</span></div>
+        <div class="line"><span>Discount (₹)</span>
+          {% if draft %}<input name="discount" value="{{ sale.discount }}" inputmode="decimal" data-recalc style="width:110px;text-align:right">{% else %}<span>−₹{{ sale.discount|inr }}</span>{% endif %}
+        </div>
+        {% if sale.taxed %}<div class="line muted small"><span>incl. GST</span><span>₹{{ sale.tax|inr }}</span></div>{% endif %}
+        <div class="line muted small"><span>Round off</span><span>{{ sale.round_off|inr }}</span></div>
+        <div class="net">₹{{ sale.net|inr }}</div>
+        {% if sale.savings > 0 %}<div class="right small" style="color:var(--ok)">Customer saves ₹{{ sale.savings|inr }}</div>{% endif %}
+      </div>
+
+      <label>Payment</label>
+      {% if draft %}
+      <div class="modes">
+        {% for m in modes %}<label><input type="radio" name="payment_mode" value="{{ m }}" {{ 'checked' if sale.payment_mode == m }} onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))"><span>{{ m }}</span></label>{% endfor %}
+      </div>
+      {% if sale.payment_mode == 'credit' %}
+        <label for="paid">Paid now (₹)</label><input id="paid" name="paid" value="{{ sale.paid }}" inputmode="decimal">
+      {% elif sale.payment_mode == 'cash' and sale.net > 0 %}
+        <div class="row" style="margin-top:.5rem"><div class="field"><label for="received">Cash received</label><input id="received" data-net="{{ sale.net }}" inputmode="decimal"></div>
+        <div class="field"><label>Change</label><div id="change" style="font-size:1.3rem;font-weight:700">—</div></div></div>
+      {% elif sale.payment_mode == 'upi' %}
+        {% set qr = upi_qr(sale.net, 'Bill') %}
+        {% if qr %}<div class="qr" style="margin-top:.5rem">{{ qr }}<div class="small muted">Scan with any UPI app · ₹{{ sale.net|inr }}</div></div>
+        {% elif current_user.can('settings') %}<p class="small muted">Add your UPI ID in <a href="{{ url_for('settings.index') }}">Settings</a> to show a payment QR code here.</p>{% endif %}
+      {% endif %}
+
+      <div class="grid" style="margin-top:1rem">
+        <button class="success big" name="action" value="print" data-key="F9">🖨 Save &amp; Print <span class="kbd">F9</span></button>
+        <button class="big secondary" name="action" value="save" data-key="F8">Save <span class="kbd">F8</span></button>
+        <button class="danger" form="discard" onclick="return confirm('Discard this bill?')">Discard bill</button>
+      </div>
+      {% else %}
+      <div>{{ sale.payment_mode|upper }}{% if sale.due > 0 %} · <span class="badge bad">Due ₹{{ sale.due|inr }}</span>{% endif %}</div>
+      {% if sale.status == 'saved' %}
+      <div class="grid" style="margin-top:1rem">
+        <a class="btn success" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">🖨 Print receipt</a>
+        <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">📄 A4 GST invoice</a>
+        <a class="btn whatsapp" href="{{ url_for('sales.receipt', sale_id=sale.id) }}#whatsapp">WhatsApp bill</a>
+        <button class="danger" form="cancel" onclick="return confirm('Cancel bill {{ sale.number }}? Stock will be returned.')">Cancel bill</button>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+  </div>
+</form>
+{% if draft %}
+<form id="quick-customer" method="post" action="{{ url_for('sales.quick_customer', sale_id=sale.id) }}"></form>
+<form id="discard" method="post" action="{{ url_for('sales.discard', sale_id=sale.id) }}"></form>
+{% else %}
+<form id="cancel" method="post" action="{{ url_for('sales.cancel', sale_id=sale.id) }}"></form>
+{% endif %}
+{% endblock %}
+{% block scripts %}{% if draft %}{{ camera_script() }}{% endif %}{% endblock %}

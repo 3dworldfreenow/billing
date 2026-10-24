@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Settings{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Settings</h1></div>
+<div class="grid cols-2" style="align-items:start">
+  <form method="post" class="card">
+    <h2>Store details</h2>
+    <label for="store_name">Store name</label><input id="store_name" name="store_name" value="{{ store.store_name }}" required>
+    <label for="address">Address</label><textarea id="address" name="address" rows="2">{{ store.address or '' }}</textarea>
+    <div class="grid cols-2">
+      <div><label for="phone">Phone</label><input id="phone" name="phone" value="{{ store.phone or '' }}"></div>
+      <div><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="{{ store.gstin or '' }}"></div>
+    </div>
+    <label for="upi_id">UPI ID (for payment QR on bills)</label><input id="upi_id" name="upi_id" value="{{ store.upi_id or '' }}" placeholder="pmart@okaxis">
+    <label for="bill_footer">Bill footer</label><input id="bill_footer" name="bill_footer" value="{{ store.bill_footer or '' }}">
+    <label class="check"><input type="checkbox" name="gst_on_sales" value="1" {{ 'checked' if store.gst_on_sales }}> Charge GST on sales (regular GST dealer)</label>
+    <p class="small muted">Untick if you are under the <b>composition scheme</b>: bills become “Bill of Supply” with no GST shown, and product costs include the GST you paid.</p>
+    <button>Save</button>
+  </form>
+
+  <div class="card" id="slabs">
+    <h2>GST tax slabs</h2>
+    <p class="small muted">Slabs offered on products and purchases. Since GST 2.0 (22 Sep 2025) the main slabs are 0%, 5%, 18% and 40%, plus 3% for gold/silver and 0.25% for rough diamonds. Old 12% and 28% slabs can be added if you still need them. Bills split GST equally into CGST + SGST.</p>
+    <table>
+      <tr><th>Name</th><th class="num">Rate</th><th class="num">CGST + SGST</th><th></th></tr>
+      {% for s in slabs %}
+      <tr><td>{{ s.name }} {% if not s.active %}<span class="badge">off</span>{% endif %}</td><td class="num">{{ s.rate|qty }}%</td><td class="num">{{ (s.rate / 2)|qty }}% + {{ (s.rate / 2)|qty }}%</td>
+        <td class="right"><form method="post" action="{{ url_for('settings.toggle_slab', slab_id=s.id) }}"><button class="secondary">{{ 'Turn off' if s.active else 'Turn on' }}</button></form></td></tr>
+      {% endfor %}
+    </table>
+    <form method="post" action="{{ url_for('settings.add_slab') }}" class="row" style="margin-top:.75rem">
+      <div><label for="rate">Rate %</label><input id="rate" name="rate" inputmode="decimal" style="width:90px" required></div>
+      <div class="field"><label for="slab_name">Name</label><input id="slab_name" name="name" placeholder="GST 12% (old)"></div>
+      <button>Add slab</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% from "_macros.html" import camera_script %}
+{% block title %}Stock adjustment{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Stock adjustment</h1>{% if current_user.can('reports') %}<a class="btn secondary" href="{{ url_for('reports.stock') }}">Stock report</a>{% endif %}</div>
+<div class="card">
+  <form method="get">
+    <div class="scanbar"><input id="code" name="q" value="{{ q }}" data-scan data-submit-on-scan autocomplete="off" placeholder="Scan or search the product you counted" aria-label="Product">
+      <button>Find</button><button type="button" class="secondary" data-camera="code">📷 Camera</button></div>
+    <div id="camera"></div>
+  </form>
+</div>
+{% if product %}
+<div class="card">
+  <h2>{{ product.name }}</h2>
+  <p class="muted">Barcode {{ product.barcode or '—' }} · System stock <b>{{ product.stock|qty }} {{ product.unit }}</b></p>
+  <div class="grid cols-2">
+    <form method="post" action="{{ url_for('stock.adjust', product_id=product.id) }}">
+      <h2>Physical count</h2>
+      <input type="hidden" name="reason" value="count">
+      <div class="row"><div class="field"><label for="actual">Counted quantity</label><input id="actual" name="actual" inputmode="decimal" required autofocus></div>
+      <div class="field"><label for="note1">Note</label><input id="note1" name="note"></div><button>Set stock</button></div>
+    </form>
+    <form method="post" action="{{ url_for('stock.adjust', product_id=product.id) }}">
+      <h2>Write off</h2>
+      <div class="row"><div class="field"><label for="lost">Quantity</label><input id="lost" name="lost" inputmode="decimal" required></div>
+      <div><label for="reason">Reason</label><select id="reason" name="reason"><option value="damaged">Damaged</option><option value="expired">Expired</option></select></div>
+      <button class="danger">Write off</button></div>
+    </form>
+  </div>
+</div>
+{% elif q %}
+<div class="card">
+  {% if matches %}<h2>Pick a product</h2>
+  {% for p in matches %}<div><a href="{{ url_for('stock.index', q=p.barcode or p.name) }}">{{ p.name }}</a> <span class="muted small">stock {{ p.stock|qty }}</span></div>{% endfor %}
+  {% else %}<p class="muted">No product found for “{{ q }}”.</p>{% endif %}
+</div>
+{% endif %}
+<div class="card table-wrap">
+  <h2>Recent adjustments</h2>
+  <table>
+    <tr><th>Date</th><th>Product</th><th>Reason</th><th class="num">System</th><th class="num">Actual</th><th class="num">Shortage / surplus</th><th>Note</th></tr>
+    {% for a in recent %}
+    <tr><td>{{ a.created_at.strftime('%d-%m-%Y %H:%M') }}</td><td>{{ a.product.name }}</td><td>{{ reasons[a.reason] }}</td>
+      <td class="num">{{ a.system_qty|qty }}</td><td class="num">{{ a.actual_qty|qty }}</td>
+      <td class="num">{% if a.difference < 0 %}<span class="badge bad">{{ a.difference|qty }}</span>{% elif a.difference > 0 %}<span class="badge ok">+{{ a.difference|qty }}</span>{% else %}0{% endif %}</td><td>{{ a.note or '' }}</td></tr>
+    {% else %}<tr><td colspan="7" class="empty">No adjustments yet.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}
+{% block scripts %}{{ camera_script() }}{% endblock %}

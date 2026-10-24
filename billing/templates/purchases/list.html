@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import date_filter %}
+{% block title %}Purchases{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Purchases</h1><a class="btn" href="{{ url_for('purchases.new') }}">+ New purchase</a></div>
+<div class="card">{{ date_filter(date_from, date_to) }}</div>
+{% if drafts %}
+<div class="card"><h2>Unsaved purchases</h2>
+  {% for d in drafts %}<a class="btn secondary" href="{{ url_for('purchases.bill', purchase_id=d.id) }}">#{{ d.id }} · {{ d.supplier_name or 'no supplier' }} · {{ d.items|length }} item{{ 's' if d.items|length != 1 }}</a> {% endfor %}
+</div>
+{% endif %}
+<div class="card table-wrap">
+  <table>
+    <tr><th>Entry</th><th>Date</th><th>Supplier</th><th>Supplier bill</th><th>Mode</th><th class="num">Net</th><th>Status</th></tr>
+    {% for p in purchases %}
+    <tr><td><a href="{{ url_for('purchases.bill', purchase_id=p.id) }}">{{ p.number }}</a></td><td>{{ p.created_at.strftime('%d-%m-%Y') }}</td>
+      <td>{{ p.supplier_name }}</td><td>{{ p.bill_no or '' }}</td><td>{{ p.payment_mode|upper }}</td><td class="num">₹{{ p.net|inr }}</td>
+      <td><span class="badge {{ p.status }}">{{ p.status }}</span>{% if p.status == 'saved' and p.due > 0 %} <span class="badge bad">due {{ p.due|inr }}</span>{% endif %}</td></tr>
+    {% else %}
+    <tr><td colspan="7" class="empty">No purchases in this period.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

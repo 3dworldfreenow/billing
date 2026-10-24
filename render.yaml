@@ -1,0 +1,20 @@
+# One-click hosting on Render (https://render.com): New → Blueprint → pick this GitHub repo.
+# The disk keeps the SQLite database across deploys (needs a paid instance).
+services:
+  - type: web
+    name: mart-billing
+    runtime: python
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app.py
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: sqlite:////var/data/billing.db
+      - key: PYTHON_VERSION
+        value: "3.13.1"
+    disk:
+      name: data
+      mountPath: /var/data
+      sizeGB: 1

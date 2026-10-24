@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Import products{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import products</h1><a class="btn secondary" href="{{ url_for('products.index') }}">All products</a></div>
+<div class="grid cols-2">
+  <form method="post" enctype="multipart/form-data" class="card">
+    <h2>Upload Excel (.xlsx) or CSV</h2>
+    <label for="file">File</label>
+    <input id="file" type="file" name="file" accept=".xlsx,.csv" required>
+    <label class="check"><input type="checkbox" name="update_stock" value="1"> Also overwrite stock of existing products</label>
+    <p class="small muted">Products are matched by barcode, then by name. Matches are updated, everything else is added. New products always take the stock from the file.</p>
+    <button>Import</button>
+  </form>
+  <div class="card">
+    <h2>Columns</h2>
+    <p class="small">The first row must be headings. Only <b>Name</b> is required. These headings are recognised (case and spaces don't matter):</p>
+    <table class="small">
+      {% for field, label, kind in fields %}<tr><td><b>{{ label }}</b></td><td class="muted">{{ aliases[field]|join(', ') }}</td></tr>{% endfor %}
+    </table>
+    <p class="small"><b>Moving from SwilERP or another software?</b> Export the product master to Excel, then upload it here. Columns like <i>NameToDisplay</i>, <i>Curr.Qty</i>, <i>SaleRate</i> and <i>Barcode</i> are picked up automatically.
+    Tip: <a href="{{ url_for('products.export', format='xlsx') }}">export your current products</a> to get a ready-made template.</p>
+  </div>
+</div>
+{% endblock %}

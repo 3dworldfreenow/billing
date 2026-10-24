@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}My account{% endblock %}
+{% block content %}
+<div class="page-head"><h1>My account</h1></div>
+<form method="post" class="card" style="max-width:420px">
+  <p class="muted">{{ current_user.name }} · {{ current_user.username }}{% if current_user.is_admin %} · admin{% endif %}</p>
+  <label for="current">Current password</label><input id="current" type="password" name="current" required autocomplete="current-password">
+  <label for="password">New password</label><input id="password" type="password" name="password" required minlength="6" autocomplete="new-password">
+  <p><button>Change password</button></p>
+</form>
+{% endblock %}

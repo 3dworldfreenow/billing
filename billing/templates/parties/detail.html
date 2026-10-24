@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ party.name }}{% endblock %}
+{% set customer = party.kind == 'customer' %}
+{% set bal = party.balance %}
+{% block content %}
+<div class="page-head">
+  <div><h1>{{ party.name }}</h1><div class="muted">{{ party.kind|capitalize }}{% if party.phone %} · {{ party.phone }}{% endif %}{% if party.gstin %} · GSTIN {{ party.gstin }}{% endif %}</div></div>
+  <a class="btn secondary" href="{{ url_for('parties.edit', party_id=party.id) }}">Edit</a>
+</div>
+<div class="grid cols-2">
+  <div class="card stat"><div class="label">{{ 'Customer owes you' if customer else 'You owe this supplier' }}</div>
+    <div class="value" style="color:{{ 'var(--bad)' if bal > 0 else 'var(--ok)' }}">₹{{ bal|inr }}</div></div>
+  <form method="post" action="{{ url_for('parties.payment', party_id=party.id) }}" class="card">
+    <h2>{{ 'Receive payment' if customer else 'Record payment' }}</h2>
+    <div class="row">
+      <div class="field"><label for="amount">Amount (₹)</label><input id="amount" name="amount" inputmode="decimal" value="{{ bal if bal > 0 else '' }}" required></div>
+      <div><label for="mode">Mode</label><select id="mode" name="mode">{% for m in modes %}<option value="{{ m }}">{{ m|upper }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="note">Note</label><input id="note" name="note"></div>
+      <button>Save</button>
+    </div>
+  </form>
+</div>
+<div class="grid cols-2">
+  <div class="card table-wrap"><h2>{{ 'Bills' if customer else 'Purchases' }}</h2>
+    <table>
+      <tr><th>No.</th><th>Date</th><th>Mode</th><th class="num">Net</th><th class="num">Due</th></tr>
+      {% for d in documents %}
+      <tr><td><a href="{{ url_for('sales.bill', sale_id=d.id) if customer else url_for('purchases.bill', purchase_id=d.id) }}">{{ d.number }}</a></td>
+        <td>{{ d.created_at.strftime('%d-%m-%Y') }}</td><td>{{ d.payment_mode|upper }}</td><td class="num">{{ d.net|inr }}</td><td class="num">{{ d.due|inr if d.due > 0 else '' }}</td></tr>
+      {% else %}<tr><td colspan="5" class="empty">None yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div class="card table-wrap"><h2>Payments</h2>
+    <table>
+      <tr><th>Date</th><th>Mode</th><th>Note</th><th class="num">Amount</th></tr>
+      {% for p in party.payments %}
+      <tr><td>{{ p.created_at.strftime('%d-%m-%Y') }}</td><td>{{ p.mode|upper }}</td><td>{{ p.note or '' }}</td><td class="num">{{ p.amount|inr }}</td></tr>
+      {% else %}<tr><td colspan="4" class="empty">No payments yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

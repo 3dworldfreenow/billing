@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block public %}
+<form method="post" class="card">
+  <h1>Welcome 👋</h1>
+  <p class="muted">Create the admin account. The admin can add other users (cashiers, managers) later.</p>
+  <label for="name">Your name</label><input id="name" name="name" required autofocus>
+  <label for="username">Username</label><input id="username" name="username" required autocapitalize="none" placeholder="admin">
+  <label for="password">Password (6+ characters)</label><input id="password" type="password" name="password" required minlength="6" autocomplete="new-password">
+  <p><button style="width:100%">Create admin</button></p>
+</form>
+{% endblock %}
