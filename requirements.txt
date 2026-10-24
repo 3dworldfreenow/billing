@@ -5,4 +5,4 @@ openpyxl==3.1.5
 segno==1.6.6
 waitress==3.0.2
 python-barcode==0.16.1
-Pillow==13.0.0
+Pillow==12.1.1  # 13.x has no wheels for older Linux (glibc 2.17, e.g. CentOS 7)
