@@ -1,0 +1,13 @@
+{
+  "name": "Mart Billing",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+  "postCreateCommand": "pip install -r requirements-dev.txt",
+  "postAttachCommand": "python app.py",
+  "forwardPorts": [5000],
+  "portsAttributes": {
+    "5000": { "label": "Mart Billing", "onAutoForward": "openBrowser" }
+  },
+  "customizations": {
+    "codespaces": { "openFiles": ["README.md"] }
+  }
+}

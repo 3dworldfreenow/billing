@@ -53,6 +53,13 @@ online (https) setup below. USB scanners work everywhere.
 
 All data is in `instance/billing.db`. **Back it up** by copying that file (e.g. to Google Drive) regularly.
 
+## Run it from GitHub (Codespaces)
+
+On the repository page click **Code → Codespaces → Create codespace**. GitHub builds it, starts the app
+and opens it in a new tab with an `https://…app.github.dev` link (camera scanning works there).
+Good for demos and testing. A codespace stops after 30 minutes without use and the free plan includes
+about 60 hours a month, so for daily billing use the shop PC or Render.
+
 ## Put it online (Render)
 
 GitHub stores the code. It can't run a Python app, so use a host that deploys from GitHub:
