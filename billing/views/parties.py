@@ -1,12 +1,10 @@
-from urllib.parse import quote
-
 from flask import Blueprint, flash, g, redirect, render_template, request, url_for
 
 from .. import inr
 from ..exporting import cell_text, map_columns, read_rows
 from ..models import PAYMENT_MODES, Party, PartyPayment, Setting, db
 from ..services import log, parse_decimal
-from .sales import whatsapp_phone
+from .sales import whatsapp_url
 
 bp = Blueprint("parties", __name__)
 LABELS = {"customer": "Customers", "supplier": "Suppliers"}
@@ -88,7 +86,7 @@ def payment(party_id):
 
 def reminder_text(party):
     store = Setting.get()
-    lines = [f"Namaste {party.name} 🙏", "",
+    lines = [f"Namaste {party.name},", "",
              f"This is a friendly reminder from *{store.store_name}*.",
              f"Your pending balance is *₹{inr(party.balance)}*."]
     if store.upi_id:
@@ -102,7 +100,7 @@ def reminder_text(party):
 def remind(party_id):
     """Open WhatsApp with a polite payment reminder for a customer's balance."""
     party = db.get_or_404(Party, party_id)
-    return redirect(f"https://wa.me/{whatsapp_phone(party.phone)}?text={quote(reminder_text(party))}")
+    return redirect(whatsapp_url(party.phone, reminder_text(party)))
 
 
 @bp.route("/customers/import", methods=["GET", "POST"], defaults={"kind": "customer"})

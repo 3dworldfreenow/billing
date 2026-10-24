@@ -1,7 +1,7 @@
 import re
 import textwrap
 from datetime import date
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
@@ -296,6 +296,15 @@ def invoice(sale_id):
     return render_template("sales/invoice.html", sale=sale)
 
 
+def whatsapp_url(phone, text):
+    """Open WhatsApp with a typed message. api.whatsapp.com directly: the wa.me redirect garbles some
+    characters on WhatsApp Desktop/Web, and messages avoid emojis for the same reason."""
+    params = {"text": text}
+    if whatsapp_phone(phone):
+        params["phone"] = whatsapp_phone(phone)
+    return "https://api.whatsapp.com/send?" + urlencode(params, quote_via=quote)
+
+
 def whatsapp_phone(phone):
     digits = re.sub(r"\D", "", phone or "")
     if len(digits) == 11 and digits.startswith("0"):
@@ -321,13 +330,13 @@ def bill_text(sale):
     if store.gstin:
         head.append(f"GSTIN: {store.gstin}")
     if sale.status == "cancelled":
-        head += ["", f"*❌ THIS {'CREDIT NOTE' if sale.is_return else 'BILL'} IS CANCELLED*"]
+        head += ["", f"*THIS {'CREDIT NOTE' if sale.is_return else 'BILL'} IS CANCELLED*"]
     number = f"Credit Note: {sale.doc_no}" if sale.is_return else f"Bill No: {sale.number}"
-    head += ["", f"🧾 *{number}*", f"📅 {sale.created_at:%d-%m-%Y, %I:%M %p}"]
+    head += ["", f"*{number}*", f"Date: {sale.created_at:%d-%m-%Y, %I:%M %p}"]
     if sale.is_return and sale.return_of:
         head.append(f"Against bill {sale.return_of.number}")
     if sale.party:
-        head.append(f"👤 {sale.customer_name}")
+        head.append(f"Customer: {sale.customer_name}")
 
     rule = "-" * WIDTH
     table = ["Item".ljust(9) + "Qty x Rate".rjust(13) + "Amount".rjust(10), rule]
@@ -362,18 +371,18 @@ def bill_text(sale):
     if sale.taxed and D(sale.tax):
         totals.append(f"_(incl. GST ₹{inr(sale.tax)})_")
     if sale.is_return:
-        totals.append("Adjusted in your account ✅" if sale.payment_mode == "credit"
-                      else f"Refunded by {sale.payment_mode.upper()} ✅")
+        totals.append("Adjusted in your account" if sale.payment_mode == "credit"
+                      else f"Refunded by {sale.payment_mode.upper()}")
     elif sale.payment_mode == "credit":
         totals.append(f"Paid: ₹{inr(sale.paid)}")
     else:
-        totals.append(f"Paid by {sale.payment_mode.upper()} ✅")
+        totals.append(f"Paid by {sale.payment_mode.upper()}")
     if sale.due > 0:
         totals.append(f"*Balance due: ₹{inr(sale.due)}*")
     if sale.savings > 0 and not sale.is_return:
-        totals += ["", f"🎉 *You saved ₹{inr(sale.savings)}!*"]
+        totals += ["", f"*You saved ₹{inr(sale.savings)}!*"]
     if sale.points_earned and sale.party:
-        totals.append(f"⭐ Points earned: {sale.points_earned} · Balance: {sale.party.points}")
+        totals.append(f"Points earned: {sale.points_earned} (balance {sale.party.points})")
 
     footer = ["", f"_{store.bill_footer}_"] if store.bill_footer else []
     return "\n".join(head + ["", "```", *table, "```", ""] + totals + footer)
@@ -385,8 +394,8 @@ def whatsapp(sale_id):
     sale = db.get_or_404(Sale, sale_id)
     if sale.status == "draft":
         return _to_bill(sale)
-    phone = whatsapp_phone(request.args.get("phone") or (sale.party.phone if sale.party else ""))
-    return redirect(f"https://wa.me/{phone}?text={quote(bill_text(sale))}")
+    phone = request.args.get("phone") or (sale.party.phone if sale.party else "")
+    return redirect(whatsapp_url(phone, bill_text(sale)))
 
 
 @bp.route("/sales")

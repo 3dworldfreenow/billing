@@ -2,7 +2,6 @@ import math
 import textwrap
 from collections import defaultdict
 from datetime import date, datetime, timedelta
-from urllib.parse import quote
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 from sqlalchemy import func
@@ -10,7 +9,7 @@ from sqlalchemy import func
 from ..models import PAYMENT_MODES, D, Party, Product, Purchase, PurchaseItem, Sale, SaleItem, Setting, TaxSlab, db
 from ..services import BillError, cancel_purchase, find_products, parse_decimal, resolve_scan, save_purchase
 from .reports import date_range
-from .sales import whatsapp_phone
+from .sales import whatsapp_url
 
 bp = Blueprint("purchases", __name__, url_prefix="/purchases")
 LINE_FIELDS = ("qty", "free_qty", "rate", "disc_pct", "gst_rate", "mrp", "sale_rate")
@@ -259,5 +258,5 @@ def order_whatsapp(purchase_id):
         lines.append(f"{i}. {name} — *{D(item.qty).normalize():f} {item.product.unit}*{free}")
     signature = f"— {store.store_name}" + (f", {store.phone}" if store.phone else "")
     lines += ["", "Please confirm availability and rates.", signature]
-    phone = whatsapp_phone(request.args.get("phone") or (order.party.phone if order.party else ""))
-    return redirect(f"https://wa.me/{phone}?text={quote(chr(10).join(lines))}")
+    phone = request.args.get("phone") or (order.party.phone if order.party else "")
+    return redirect(whatsapp_url(phone, "\n".join(lines)))

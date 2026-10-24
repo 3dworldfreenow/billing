@@ -353,7 +353,7 @@ def test_import_customers_with_opening_balances_and_reminder(client):
     assert (mohan.phone, mohan.balance) == ("9876500001", Decimal("1200.00"))
     assert Party.query.filter_by(name="Sohan").one().balance == Decimal("-300.00")
     wa = client.get(f"/parties/{mohan.id}/remind").headers["Location"]
-    assert wa.startswith("https://wa.me/919876500001?text=") and "1%2C200.00" in wa
+    assert wa.startswith("https://api.whatsapp.com/send?text=") and "phone=919876500001" in wa and "1%2C200.00" in wa
     assert b"WhatsApp reminder" in client.get("/reports/dues").data
 
 

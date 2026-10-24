@@ -107,7 +107,8 @@ def test_receipt_invoice_whatsapp(client):
     assert b"You saved" in receipt.data
     assert b"Medimix" in client.get(f"/sales/{sale_id}/invoice").data
     wa = client.get(f"/sales/{sale_id}/whatsapp?phone=98765-43210")
-    assert wa.headers["Location"].startswith("https://wa.me/919876543210?text=")
+    assert wa.headers["Location"].startswith("https://api.whatsapp.com/send?text=")
+    assert wa.headers["Location"].endswith("&phone=919876543210")
     assert "P%20MART" in wa.headers["Location"]
 
 
@@ -151,3 +152,17 @@ def test_whatsapp_text_is_formatted_for_phones(client):
     assert all(len(r) <= 32 for r in rows)
     assert "MRP 45          4 x 42    168.00" in rows
     assert "*TOTAL: ₹191.00*" in totals and "Discount: -₹5.00" in totals and "You saved" in totals
+
+
+def test_whatsapp_messages_have_no_emojis(client):
+    """Emojis turn into '?' boxes on some WhatsApp apps; messages stick to plain text and ₹."""
+    import re
+    from urllib.parse import parse_qs, urlparse
+
+    sale_id = new_sale(client)
+    client.post(f"/sales/{sale_id}/scan", data={"code": "2*8904018301680"})
+    client.post(f"/sales/{sale_id}/update", data={"payment_mode": "upi", "action": "save"})
+    url = client.get(f"/sales/{sale_id}/whatsapp?phone=9575936429").headers["Location"]
+    text = parse_qs(urlparse(url).query)["text"][0]
+    assert "\n" in text and "*TOTAL: ₹84.00*" in text and "Paid by UPI" in text
+    assert not re.search("[\U0001F000-\U0001FAFF☀-➿]", text)
