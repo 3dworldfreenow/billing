@@ -1,3 +1,5 @@
+import os
+
 import pytest
 
 from billing import create_app
@@ -6,7 +8,9 @@ from billing.models import Customer, Product, db
 
 @pytest.fixture
 def app():
-    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://"})
+    # Set TEST_DATABASE_URL to run against Postgres (e.g. a throwaway Supabase or local DB).
+    url = os.environ.get("TEST_DATABASE_URL", "sqlite://")
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": url})
     with app.app_context():
         db.session.add_all([
             Customer(name="Acme Ltd", email="ap@acme.test"),
@@ -15,6 +19,8 @@ def app():
         ])
         db.session.commit()
         yield app
+        db.session.remove()
+        db.drop_all()
 
 
 @pytest.fixture
