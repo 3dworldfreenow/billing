@@ -135,3 +135,19 @@ def test_cgst_sgst_add_up_to_tax(client):
     client.post(f"/sales/{sale_id}/update", data={"action": "save"})
     (taxable, cgst, sgst), = db.session.get(Sale, sale_id).tax_summary().values()
     assert (taxable, cgst, sgst) == (Decimal("142.37"), Decimal("12.82"), Decimal("12.81"))
+
+
+def test_whatsapp_text_is_formatted_for_phones(client):
+    from billing.views.sales import bill_text
+
+    sale_id = new_sale(client)
+    client.post(f"/sales/{sale_id}/scan", data={"code": "4*8904018301680"})
+    client.post(f"/sales/{sale_id}/scan", data={"code": "8901058000290"})
+    client.post(f"/sales/{sale_id}/update", data={"discount": "5", "action": "save"})
+    text = bill_text(db.session.get(Sale, sale_id))
+    head, block, totals = text.split("```")
+    assert head.startswith("*P MART*") and "*Bill No: 1*" in head
+    rows = block.strip("\n").split("\n")
+    assert all(len(r) <= 32 for r in rows)
+    assert "MRP 45          4 x 42    168.00" in rows
+    assert "*TOTAL: ₹191.00*" in totals and "Discount: -₹5.00" in totals and "You saved" in totals

@@ -1,9 +1,11 @@
 import re
+import textwrap
 from datetime import date
 from urllib.parse import quote
 
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
+from .. import inr
 from ..models import PAYMENT_MODES, D, Party, Product, Sale, SaleItem, Setting, db
 from ..services import BillError, cancel_sale, find_products, parse_decimal, parse_scan, save_sale
 from .reports import date_range
@@ -205,19 +207,68 @@ def whatsapp_phone(phone):
     return "91" + digits if len(digits) == 10 else digits
 
 
+WIDTH = 32  # characters per line of WhatsApp's monospace block on a phone
+
+
+def _num(value):
+    """Rates without needless decimals: 42.00 -> 42, 42.50 -> 42.5"""
+    return f"{D(value).normalize():f}"
+
+
 def bill_text(sale):
+    """The bill as a WhatsApp message: *bold* headings, items in a ``` monospace ``` block so columns line up."""
     store = Setting.get()
-    lines = [f"*{store.store_name}*", f"Bill No: {sale.number}   {sale.created_at:%d-%m-%Y %I:%M %p}", ""]
+    head = [f"*{store.store_name}*"]
+    contact = " · ".join(filter(None, [store.address, f"Ph: {store.phone}" if store.phone else None]))
+    if contact:
+        head.append(contact)
+    if store.gstin:
+        head.append(f"GSTIN: {store.gstin}")
+    if sale.status == "cancelled":
+        head += ["", "*❌ THIS BILL IS CANCELLED*"]
+    head += ["", f"🧾 *Bill No: {sale.number}*", f"📅 {sale.created_at:%d-%m-%Y, %I:%M %p}"]
+    if sale.party:
+        head.append(f"👤 {sale.customer_name}")
+
+    rule = "-" * WIDTH
+    table = ["Item".ljust(9) + "Qty x Rate".rjust(13) + "Amount".rjust(10), rule]
     for item in sale.items:
-        lines.append(f"{item.name}  {D(item.qty).normalize():f} x {item.rate} = ₹{item.amount}")
-    lines += ["", f"*Total: ₹{sale.net}*  ({sale.payment_mode.upper()})"]
+        table += textwrap.wrap(item.name, WIDTH) or [""]
+        mrp = f"MRP {_num(item.mrp)}" if D(item.mrp) > D(item.rate) else ""
+        qty_rate = f"{_num(item.qty)} x {_num(item.rate)}"
+        if D(item.disc_pct):
+            qty_rate += f" -{_num(item.disc_pct)}%"
+        amount = inr(item.amount)
+        row = mrp.ljust(9) + qty_rate.rjust(13) + amount.rjust(10)
+        if len(row) > WIDTH:  # very long numbers: keep the amount at the right edge
+            row = f"{mrp} {qty_rate} ".ljust(WIDTH - len(amount)) + amount
+        table.append(row)
+    table += [rule, f"Items: {len(sale.items)}   Qty: {_num(sale.total_qty)}"]
+
+    def line(label, value):
+        return f"{label}: ₹{inr(value)}"
+
+    totals = []
+    if D(sale.discount) or D(sale.round_off):
+        totals.append(line("Subtotal", sale.gross))
+        if D(sale.discount):
+            totals.append(f"Discount: -₹{inr(sale.discount)}")
+        if D(sale.round_off):
+            totals.append(f"Round off: {'+' if sale.round_off > 0 else '-'}₹{inr(abs(sale.round_off))}")
+    totals.append(f"*TOTAL: ₹{inr(sale.net)}*")
+    if sale.taxed and D(sale.tax):
+        totals.append(f"_(incl. GST ₹{inr(sale.tax)})_")
+    if sale.payment_mode == "credit":
+        totals.append(f"Paid: ₹{inr(sale.paid)}")
+    else:
+        totals.append(f"Paid by {sale.payment_mode.upper()} ✅")
     if sale.due > 0:
-        lines.append(f"Balance due: ₹{sale.due}")
+        totals.append(f"*Balance due: ₹{inr(sale.due)}*")
     if sale.savings > 0:
-        lines.append(f"You saved ₹{sale.savings}")
-    if store.bill_footer:
-        lines += ["", store.bill_footer]
-    return "\n".join(lines)
+        totals += ["", f"🎉 *You saved ₹{inr(sale.savings)}!*"]
+
+    footer = ["", f"_{store.bill_footer}_"] if store.bill_footer else []
+    return "\n".join(head + ["", "```", *table, "```", ""] + totals + footer)
 
 
 @bp.route("/sales/<int:sale_id>/whatsapp")
