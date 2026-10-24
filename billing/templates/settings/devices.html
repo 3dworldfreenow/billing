@@ -1,0 +1,42 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<form method="post" action="{{ url_for('settings.save_devices') }}" class="grid cols-2" style="align-items:start">
+  <div class="card">
+    <h2>Weighing scale barcodes</h2>
+    <p class="small muted">Scales print EAN-13 labels: <b>prefix</b> + <b>item code (PLU)</b> + <b>weight or price</b> + check digit. Set the same PLU on the product (Products → Scale PLU). Check your scale's manual or a printed label for the numbers.</p>
+    <div class="grid cols-3">
+      <div><label for="scale_prefix">Prefix</label><input id="scale_prefix" name="scale_prefix" inputmode="numeric" value="{{ store.scale_prefix or '' }}" placeholder="e.g. 21 (empty = off)"></div>
+      <div><label for="scale_item_digits">Item code digits</label><select id="scale_item_digits" name="scale_item_digits">{% for d in range(3, 7) %}<option {{ 'selected' if d == store.scale_item_digits }}>{{ d }}</option>{% endfor %}</select></div>
+      <div><label for="scale_value">Label contains</label><select id="scale_value" name="scale_value">
+        <option value="weight" {{ 'selected' if store.scale_value == 'weight' }}>Weight (grams)</option>
+        <option value="price" {{ 'selected' if store.scale_value == 'price' }}>Price (paise)</option></select></div>
+    </div>
+    {% if store.scale_prefix %}{% set value_digits = 12 - store.scale_prefix|length - store.scale_item_digits %}
+    <p class="small">Example: <code>{{ store.scale_prefix }}{{ '101'.rjust(store.scale_item_digits, '0') }}{{ '1250'.rjust(value_digits, '0') }}·</code> = PLU 101, {{ '1.250 kg' if store.scale_value == 'weight' else '₹12.50' }}</p>{% endif %}
+  </div>
+  <div class="card">
+    <h2>Receipt printer</h2>
+    <label for="printer_mode">Print receipts</label>
+    <select id="printer_mode" name="printer_mode">
+      <option value="browser" {{ 'selected' if store.printer_mode == 'browser' }}>With the browser's print window (any printer)</option>
+      <option value="network" {{ 'selected' if store.printer_mode == 'network' }}>Straight to a network (LAN/Wi-Fi) thermal printer</option>
+      <option value="windows" {{ 'selected' if store.printer_mode == 'windows' }}>Straight to a Windows printer (USB thermal)</option>
+    </select>
+    <label for="printer_address">Printer address</label>
+    <input id="printer_address" name="printer_address" value="{{ store.printer_address or '' }}" placeholder="192.168.1.50:9100  or the Windows printer name, e.g. POS-80">
+    <label for="printer_width">Paper</label><select id="printer_width" name="printer_width">
+      <option value="48" {{ 'selected' if store.printer_width == 48 }}>80 mm (48 characters)</option>
+      <option value="32" {{ 'selected' if store.printer_width == 32 }}>58 mm (32 characters)</option></select>
+    <label class="check"><input type="checkbox" name="auto_print" value="1" {{ 'checked' if store.auto_print }}> Print automatically on Save &amp; Print (F9)</label>
+    <label class="check"><input type="checkbox" name="open_drawer" value="1" {{ 'checked' if store.open_drawer }}> Open the cash drawer on cash bills</label>
+    <p class="small muted">Direct printing works from the counter PC running the app. Windows printing needs <code>pywin32</code> (one time: <code>.venv\Scripts\pip install pywin32</code>).</p>
+  </div>
+  <div><button>Save scale &amp; printer settings</button></div>
+</form>
+{% if store.printer_mode != 'browser' %}
+<div class="row card">
+  <form method="post" action="{{ url_for('settings.test_printer') }}"><button class="secondary">🖨 Print test page</button></form>
+  <form method="post" action="{{ url_for('settings.test_printer') }}"><input type="hidden" name="what" value="drawer"><button class="secondary">Open cash drawer</button></form>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Reorder list{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Reorder list</h1>
+  <form method="get" class="row"><div><label for="cover">Order enough for</label>
+    <select id="cover" name="cover" onchange="this.form.submit()">{% for d in (7, 15, 30, 45) %}<option value="{{ d }}" {{ 'selected' if d == cover }}>{{ d }} days</option>{% endfor %}</select></div></form>
+</div>
+<p class="muted">Products at or below their low-stock alert level, or with less than a week of stock at the last 30 days' sales speed. Grouped by the supplier you last bought from.</p>
+{% for supplier, rows in groups %}
+<form method="post" class="card table-wrap">
+  <input type="hidden" name="party_id" value="{{ supplier.id if supplier else '' }}">
+  <div class="row spread"><h2>{{ supplier.name if supplier else 'No purchase recorded yet' }}</h2>
+    <button>Create purchase order</button></div>
+  <table>
+    <tr><th><input type="checkbox" checked onchange="this.closest('form').querySelectorAll('[name^=pick_]').forEach(c => c.checked = this.checked)" aria-label="Select all"></th>
+      <th>Product</th><th class="num">Stock</th><th class="num">Alert at</th><th class="num">Sells / day</th><th class="num">Order qty</th></tr>
+    {% for p, daily, suggest in rows %}
+    <tr><td><input type="checkbox" name="pick_{{ p.id }}" value="1" checked aria-label="Order {{ p.name }}"></td>
+      <td>{{ p.name }}</td><td class="num">{% if p.stock <= 0 %}<span class="badge bad">{{ p.stock|qty }}</span>{% else %}{{ p.stock|qty }}{% endif %}</td>
+      <td class="num">{{ p.min_stock|qty }}</td><td class="num">{{ '%.1f'|format(daily) }}</td>
+      <td class="num"><input name="qty_{{ p.id }}" value="{{ suggest }}" inputmode="decimal" style="width:90px" aria-label="Order quantity"></td></tr>
+    {% endfor %}
+  </table>
+</form>
+{% else %}
+<div class="card empty">Nothing to reorder. Set “Low-stock alert at” on products, or wait for some sales history.</div>
+{% endfor %}
+{% endblock %}

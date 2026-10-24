@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}{{ offer.name or 'New offer' }}{% endblock %}
+
+{% block content %}
+<div class="page-head"><h1>{{ 'Edit offer' if offer.id else 'New offer' }}</h1><a class="btn secondary" href="{{ url_for('offers.index') }}">All offers</a></div>
+<form method="post" class="card" style="max-width:760px">
+  <div class="grid cols-2">
+    <div><label for="name">Name (printed on the bill)</label><input id="name" name="name" value="{{ offer.name or '' }}" required placeholder="e.g. Diwali 10% off sweets"></div>
+    <div><label for="kind">Type</label><select id="kind" name="kind" onchange="document.querySelectorAll('[data-kind]').forEach(el => el.hidden = !el.dataset.kind.split(' ').includes(this.value))">
+      {% for key, label in kinds.items() %}<option value="{{ key }}" {{ 'selected' if offer.kind == key }}>{{ label }}</option>{% endfor %}</select></div>
+  </div>
+  <div class="grid cols-2" data-kind="percent bxgy" {{ 'hidden' if offer.kind == 'bill' }}>
+    <div><label for="product">Product (optional)</label>
+      <input id="product" data-autocomplete="products" data-pick="fill-id" placeholder="Search a product" value="{{ offer.product.name if offer.product else '' }}" aria-label="Product">
+      <input type="hidden" name="product_id" id="product_id" value="{{ offer.product_id or '' }}"></div>
+    <div><label for="category">…or category</label><input id="category" name="category" list="categories" value="{{ offer.category or '' }}" placeholder="empty = all products">
+      <datalist id="categories">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
+  </div>
+  <div class="grid cols-4">
+    <div data-kind="percent bill" {{ 'hidden' if offer.kind == 'bxgy' }}><label for="percent">% off</label><input id="percent" name="percent" inputmode="decimal" value="{{ offer.percent|qty if offer.percent else '' }}"></div>
+    <div data-kind="bxgy" {{ 'hidden' if offer.kind != 'bxgy' }}><label for="buy_qty">Buy</label><input id="buy_qty" name="buy_qty" type="number" min="1" value="{{ offer.buy_qty or 2 }}"></div>
+    <div data-kind="bxgy" {{ 'hidden' if offer.kind != 'bxgy' }}><label for="free_qty">Get free</label><input id="free_qty" name="free_qty" type="number" min="1" value="{{ offer.free_qty or 1 }}"></div>
+    <div data-kind="bill" {{ 'hidden' if offer.kind != 'bill' }}><label for="flat_amount">…or flat ₹ off</label><input id="flat_amount" name="flat_amount" inputmode="decimal" value="{{ offer.flat_amount|qty if offer.flat_amount else '' }}"></div>
+    <div data-kind="bill" {{ 'hidden' if offer.kind != 'bill' }}><label for="min_amount">When bill is at least ₹</label><input id="min_amount" name="min_amount" inputmode="decimal" value="{{ offer.min_amount|qty if offer.min_amount else '' }}"></div>
+  </div>
+  <div class="grid cols-4">
+    <div><label for="starts_on">From date</label><input id="starts_on" type="date" name="starts_on" value="{{ offer.starts_on or '' }}"></div>
+    <div><label for="ends_on">To date</label><input id="ends_on" type="date" name="ends_on" value="{{ offer.ends_on or '' }}"></div>
+    <div><label for="start_time">Happy hours from</label><input id="start_time" type="time" name="start_time" value="{{ offer.start_time.strftime('%H:%M') if offer.start_time else '' }}"></div>
+    <div><label for="end_time">to</label><input id="end_time" type="time" name="end_time" value="{{ offer.end_time.strftime('%H:%M') if offer.end_time else '' }}"></div>
+  </div>
+  <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if offer.active }}> Active</label>
+  <p class="small muted">When several offers fit a line, the customer gets the biggest one. Leave the dates empty for an offer that always runs.</p>
+  <p><button>Save offer</button></p>
+</form>
+{% endblock %}
+{% block scripts %}<script>
+  document.getElementById('product').addEventListener('input', (e) => { if (!e.target.value.trim()) document.getElementById('product_id').value = ''; });
+</script>{% endblock %}

@@ -9,6 +9,14 @@
     <div><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="{{ party.gstin or '' }}"></div>
   </div>
   <label for="address">Address</label><textarea id="address" name="address" rows="3">{{ party.address or '' }}</textarea>
+  <div class="grid cols-2">
+    <div><label for="opening_balance">Opening balance (₹)</label>
+      <input id="opening_balance" name="opening_balance" inputmode="decimal" value="{{ party.opening_balance if party.opening_balance else '' }}" placeholder="0">
+      <div class="small muted">{{ 'What they owed you when you started using this app.' if party.kind == 'customer' else 'What you owed them when you started using this app.' }}</div></div>
+    {% if party.kind == 'customer' %}
+    <div><label>&nbsp;</label><label class="check"><input type="checkbox" name="wholesale" value="1" {{ 'checked' if party.price_list == 'wholesale' }}> Wholesale customer (bills use wholesale rates)</label></div>
+    {% endif %}
+  </div>
   <p><button>Save</button></p>
 </form>
 {% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Import {{ kind }}s{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Import {{ kind }}s</h1><a class="btn secondary" href="{{ url_for('parties.' ~ kind ~ 's') }}">Back</a></div>
+<div class="grid cols-2">
+  <form method="post" enctype="multipart/form-data" class="card">
+    <h2>Upload Excel (.xlsx) or CSV</h2>
+    <label for="file">File</label><input id="file" type="file" name="file" accept=".xlsx,.csv" required>
+    <p class="small muted">Matched by mobile number, then by name. Matches are updated, the rest are added.</p>
+    <button>Import</button>
+  </form>
+  <div class="card">
+    <h2>Columns</h2>
+    <p class="small">Only <b>Name</b> is required. Recognised headings:</p>
+    <table class="small">{% for field, names in aliases.items() %}<tr><td><b>{{ field.replace('_', ' ')|capitalize }}</b></td><td class="muted">{{ names|join(', ') }}</td></tr>{% endfor %}</table>
+    <p class="small">Opening balances like <code>1200 Dr</code> or <code>300 Cr</code> (from SwilERP or Tally) are understood: for customers Dr means they owe you; for suppliers Cr means you owe them.</p>
+  </div>
+</div>
+{% endblock %}

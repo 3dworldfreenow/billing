@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Price labels{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Price labels</h1><a class="btn secondary" href="{{ url_for('products.index') }}">Products</a></div>
+<form method="post" class="card">
+  <div class="scanbar">
+    <input id="code" name="code" data-scan data-autocomplete="products" data-pick="add" data-add-url="{{ url_for('products.labels') }}" autocomplete="off" placeholder="Scan or search a product to add labels" aria-label="Product">
+    <input name="copies" type="number" min="1" value="1" style="max-width:90px" aria-label="Copies">
+    <button>Add</button>
+  </div>
+  <p class="small muted">Tip: on a saved purchase, click <b>Print labels</b> to add one label per unit received.</p>
+</form>
+{% if rows %}
+<form method="post" action="{{ url_for('products.labels_update') }}" class="card table-wrap">
+  <table>
+    <tr><th>Product</th><th>Barcode</th><th class="num">MRP</th><th class="num">Our price</th><th class="num">Labels</th><th></th></tr>
+    {% for p, copies in rows %}
+    <tr><td>{{ p.name }}</td><td>{% if p.barcode %}<code>{{ p.barcode }}</code>{% else %}<span class="badge bad">no barcode</span>{% endif %}</td>
+      <td class="num">{{ p.mrp|inr }}</td><td class="num">{{ p.sale_rate|inr }}</td>
+      <td class="num"><input name="copies_{{ p.id }}" type="number" min="0" value="{{ copies }}" style="width:90px" aria-label="Labels for {{ p.name }}"></td>
+      <td><button class="link" name="action" value="remove:{{ p.id }}">✕</button></td></tr>
+    {% endfor %}
+  </table>
+  <div class="row" style="margin-top:.75rem">
+    <button class="secondary" name="action" value="update">Update counts</button>
+    {% if missing %}<button class="secondary" name="action" value="barcodes">Create barcodes for {{ missing }} product{{ 's' if missing != 1 }}</button>{% endif %}
+    <button class="danger" name="action" value="clear">Clear list</button>
+  </div>
+</form>
+<form method="get" action="{{ url_for('products.labels_print') }}" target="_blank" class="card row">
+  <div><label for="layout">Label size</label><select id="layout" name="layout">{% for key, label in layouts.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+  <label class="check"><input type="checkbox" name="price" value="1" checked> Show prices</label>
+  <button>🖨 Print labels</button>
+</form>
+{% else %}
+<div class="card empty">No labels yet. Scan products above.</div>
+{% endif %}
+{% endblock %}

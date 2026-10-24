@@ -1,0 +1,79 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<div class="grid cols-2" style="align-items:start">
+  <div class="card">
+    <h2>Export all data</h2>
+    <p class="small muted">One Excel file with every product, bill, purchase, customer, payment, expense and stock change, one sheet each. Good for your CA or for keeping a copy anywhere.</p>
+    <div class="row">
+      <a class="btn" href="{{ url_for('settings.export_all') }}">⬇ Export all data (Excel)</a>
+      <a class="btn secondary" href="{{ url_for('settings.backup_download') }}">⬇ Download database backup</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Google Drive</h2>
+    {% if store.drive_refresh_token %}
+      <p><span class="badge ok">Connected</span> Uploads go to the folder “{{ store.store_name }} Backups” in your Drive.</p>
+      <div class="row">
+        <form method="post" action="{{ url_for('settings.drive_upload') }}"><button>⬆ Upload to Google Drive now</button></form>
+        <form method="post" action="{{ url_for('settings.drive_disconnect') }}" onsubmit="return confirm('Disconnect Google Drive?')"><button class="danger">Disconnect</button></form>
+      </div>
+      <p class="small muted">Each upload has a database backup (.db) and the Excel export.</p>
+    {% else %}
+      <p class="small">Connect once, then upload with one click (or automatically with every backup).</p>
+      <details {{ 'open' if not store.drive_client_id }}><summary class="small"><b>One-time setup (10 minutes)</b></summary>
+        <ol class="small">
+          <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> with your Google account and create a project (any name).</li>
+          <li>APIs &amp; Services → Library → enable <b>Google Drive API</b>.</li>
+          <li>OAuth consent screen → External → fill the app name and your email → add yourself under <b>Test users</b>.</li>
+          <li>Credentials → Create credentials → <b>OAuth client ID</b> → type <b>Web application</b> → Authorized redirect URI:<br><code>{{ redirect_uri }}</code></li>
+          <li>Copy the <b>Client ID</b> and <b>Client secret</b> below, save, then click Connect.</li>
+        </ol>
+        <p class="small muted">Open this page as <code>http://localhost:5000</code> on the counter PC when connecting: Google only accepts that (or an https address) as the return address.</p>
+      </details>
+    {% endif %}
+    <form method="post" action="{{ url_for('settings.drive_settings') }}">
+      <div class="grid cols-2">
+        <div><label for="drive_client_id">Client ID</label><input id="drive_client_id" name="drive_client_id" value="{{ store.drive_client_id or '' }}"></div>
+        <div><label for="drive_client_secret">Client secret</label><input id="drive_client_secret" name="drive_client_secret" type="password" placeholder="{{ '•••••• (saved)' if store.drive_client_secret else '' }}" autocomplete="off"></div>
+      </div>
+      <label class="check"><input type="checkbox" name="drive_auto" value="1" {{ 'checked' if store.drive_auto }}> Also upload to Drive with every automatic backup</label>
+      <div class="row"><button class="secondary">Save</button>
+        {% if store.drive_client_id and not store.drive_refresh_token %}<button class="btn" form="drive-connect">Connect Google Drive</button>{% endif %}</div>
+    </form>
+    <form id="drive-connect" method="post" action="{{ url_for('settings.drive_connect') }}"></form>
+    {% if store.last_drive_at %}<div class="flash {{ 'error' if 'FAILED' in (store.last_drive_note or '') else 'success' }}" style="margin:.75rem 0 0">
+      {{ store.last_drive_at.strftime('%d %b %Y, %I:%M %p') }}: {{ store.last_drive_note }}</div>{% endif %}
+  </div>
+</div>
+
+<div class="card">
+  <h2>Automatic backups on this PC</h2>
+  <div class="grid cols-2" style="align-items:start">
+    <form method="post" action="{{ url_for('settings.backup_settings') }}">
+      <label for="backup_dir">Backup folder</label>
+      <input id="backup_dir" name="backup_dir" value="{{ store.backup_dir or '' }}" placeholder="{{ default_backup_dir }}">
+      <p class="small muted" style="margin:.25rem 0 0">Optional: with <b>Google Drive for desktop</b> installed, use a folder inside it (e.g. <code>G:\My Drive\{{ store.store_name }} Backups</code>) and Drive syncs every backup too.</p>
+      <div class="grid cols-2">
+        <div><label for="backup_hours">Back up automatically</label>
+          <select id="backup_hours" name="backup_hours">
+            {% for h, label in [(1, 'Every hour'), (3, 'Every 3 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Once a day'), (0, 'Off')] %}
+            <option value="{{ h }}" {{ 'selected' if store.backup_hours == h }}>{{ label }}</option>{% endfor %}
+          </select></div>
+        <div><label for="backup_keep">Keep last</label><input id="backup_keep" name="backup_keep" type="number" min="1" max="365" value="{{ store.backup_keep }}"></div>
+      </div>
+      <p><button>Save backup settings</button></p>
+    </form>
+    <div>
+      <label>Last backup</label>
+      {% if store.last_backup_at %}
+        <div class="flash {{ 'error' if 'FAILED' in (store.last_backup_note or '') else 'success' }}" style="margin:0">
+          {{ store.last_backup_at.strftime('%d %b %Y, %I:%M %p') }}: {{ store.last_backup_note }}</div>
+      {% else %}<p class="muted">No backup yet.</p>{% endif %}
+      <form method="post" action="{{ url_for('settings.backup_now') }}" style="margin-top:.75rem"><button>Back up now</button></form>
+      <p class="small muted">Automatic backups run while the app is started with <code>run_windows.bat</code> / <code>app.py</code>.
+        <b>To restore:</b> close the app, copy a backup file into the <code>instance</code> folder, rename it to <code>billing.db</code>, then start the app.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

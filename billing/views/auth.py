@@ -1,6 +1,9 @@
+from decimal import Decimal
+
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, session, url_for
 
 from ..models import PERMISSIONS, User, db
+from ..services import log, parse_decimal
 
 bp = Blueprint("auth", __name__)
 
@@ -11,7 +14,7 @@ OPEN_ENDPOINTS = {"auth.login", "auth.setup", "static"}
 HOME_FOR = [  # where each permission lands after login
     ("sales", "sales.pos"), ("reports", "reports.dashboard"), ("purchases", "purchases.new"),
     ("products", "products.index"), ("stock", "stock.index"), ("parties", "parties.customers"),
-    ("settings", "settings.index"),
+    ("cash", "cash.index"), ("offers", "offers.index"), ("settings", "settings.index"),
 ]
 
 
@@ -132,14 +135,19 @@ def user_form(user_id=None):
         error = _fill_user(user, request.form, new=user_id is None)
         is_admin = request.form.get("is_admin") == "1"
         active = request.form.get("active") == "1"
+        max_discount = parse_decimal(request.form.get("max_discount", ""), Decimal(100))  # blank = no limit
         if not error and user.id == g.user.id and (not is_admin or not active):
             error = "You can't remove your own admin access or deactivate yourself."
+        if not error and (max_discount is None or not 0 <= max_discount <= 100):
+            error = "Discount limit must be between 0 and 100%."
         if error:
             flash(error, "error")
         else:
-            user.is_admin, user.active = is_admin, active
+            user.is_admin, user.active, user.max_discount = is_admin, active, max_discount
             user.permissions = ",".join(p for p in PERMISSIONS if request.form.get(f"perm_{p}") == "1")
             db.session.add(user)
+            log("user saved", f"{user.username}: {'admin' if is_admin else user.permissions or 'no access'}, "
+                              f"discount ≤ {max_discount}%, {'active' if active else 'disabled'}")
             db.session.commit()
             flash(f"User {user.username} saved.", "success")
             return redirect(url_for("auth.users"))

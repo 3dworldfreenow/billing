@@ -1,0 +1,16 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<form method="get" class="card row" data-live="#results">
+  <div><label for="user_id">User</label><select id="user_id" name="user_id"><option value="">Everyone</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if request.args.get('user_id', '') == u.id|string }}>{{ u.name }}</option>{% endfor %}</select></div>
+  <div><label for="action">Action</label><select id="action" name="action"><option value="">All</option>{% for a in actions %}<option {{ 'selected' if request.args.get('action') == a }}>{{ a }}</option>{% endfor %}</select></div>
+</form>
+<div class="card table-wrap" id="results">
+  <table>
+    <tr><th>When</th><th>User</th><th>Action</th><th>Details</th></tr>
+    {% for e in entries %}
+    <tr><td class="small">{{ e.created_at.strftime('%d-%m-%Y %I:%M %p') }}</td><td>{{ e.user.name if e.user else '—' }}</td><td><span class="badge">{{ e.action }}</span></td><td class="small">{{ e.detail }}</td></tr>
+    {% else %}<tr><td colspan="4" class="empty">Nothing recorded yet.</td></tr>{% endfor %}
+  </table>
+  <p class="small muted">Shows the latest 500 entries. Records cancellations, returns, discarded bills, price and stock changes, day closes, cash entries, expenses, offers, users and settings.</p>
+</div>
+{% endblock %}

@@ -5,6 +5,7 @@
 <div class="page-head">
   <h1>Products</h1>
   <div class="row">
+    <a class="btn secondary" href="{{ url_for('products.labels') }}">🏷️ Labels</a>
     <a class="btn secondary" href="{{ url_for('products.import_') }}">⬆ Import</a>
     <a class="btn secondary" href="{{ url_for('products.export', q=q, format='xlsx') }}">⬇ Excel</a>
     <a class="btn secondary" href="{{ url_for('products.export', q=q, format='csv') }}">⬇ CSV</a>

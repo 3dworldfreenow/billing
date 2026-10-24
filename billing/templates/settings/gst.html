@@ -1,0 +1,18 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<div class="card" style="max-width:760px">
+  <p class="small muted">Slabs offered on products and purchases. Since GST 2.0 (22 Sep 2025) the main slabs are 0%, 5%, 18% and 40%, plus 3% for gold/silver and 0.25% for rough diamonds. Old 12% and 28% slabs can be added if you still need them. Bills split GST equally into CGST + SGST.</p>
+  <table>
+    <tr><th>Name</th><th class="num">Rate</th><th class="num">CGST + SGST</th><th></th></tr>
+    {% for s in slabs %}
+    <tr><td>{{ s.name }} {% if not s.active %}<span class="badge">off</span>{% endif %}</td><td class="num">{{ s.rate|qty }}%</td><td class="num">{{ (s.rate / 2)|qty }}% + {{ (s.rate / 2)|qty }}%</td>
+      <td class="right"><form method="post" action="{{ url_for('settings.toggle_slab', slab_id=s.id) }}"><button class="secondary">{{ 'Turn off' if s.active else 'Turn on' }}</button></form></td></tr>
+    {% endfor %}
+  </table>
+  <form method="post" action="{{ url_for('settings.add_slab') }}" class="row" style="margin-top:.75rem">
+    <div><label for="rate">Rate %</label><input id="rate" name="rate" inputmode="decimal" style="width:90px" required></div>
+    <div class="field"><label for="slab_name">Name</label><input id="slab_name" name="name" placeholder="GST 12% (old)"></div>
+    <button>Add slab</button>
+  </form>
+</div>
+{% endblock %}

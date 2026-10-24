@@ -7,6 +7,7 @@
   //   data-pick="add"        POST product_id (+ qty from a "3*" prefix) to data-add-url
   //   data-pick="go"         open data-go-url with __ID__ replaced
   //   data-pick="select:ID"  choose the option in <select id=ID> and fire its change event
+  //   data-pick="fill-id"    show the name and put the id in the hidden input <id>_id
   // Enter without choosing a suggestion submits the form as typed, so USB scanners keep working.
   function autocomplete(input) {
     const kind = input.dataset.autocomplete;
@@ -58,6 +59,9 @@
         document.body.appendChild(f); f.submit();
       } else if (mode === 'go') {
         location.href = input.dataset.goUrl.replace('__ID__', it.id);
+      } else if (mode === 'fill-id') {
+        input.value = it.name;
+        document.getElementById(input.id + '_id').value = it.id;
       } else if (mode.startsWith('select:')) {
         const sel = document.getElementById(mode.slice(7));
         if (![...sel.options].some((o) => o.value == it.id)) sel.add(new Option(it.name, it.id));

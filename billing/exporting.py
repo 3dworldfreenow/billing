@@ -2,6 +2,7 @@
 
 import csv
 import io
+import re
 from datetime import date, datetime
 from decimal import Decimal
 
@@ -81,3 +82,18 @@ def cell_text(value):
     if isinstance(value, (date, datetime)):
         return value.isoformat()
     return str(value).strip()
+
+
+def header_key(header):
+    return re.sub(r"[^a-z0-9]", "", str(header).lower())
+
+
+def map_columns(rows, aliases):
+    """{field: column heading in the file}, using the first alias found for each field."""
+    headers = {header_key(h): h for h in rows[0].keys() if h} if rows else {}
+    mapping = {}
+    for field, names in aliases.items():
+        source = next((headers[a] for a in names if a in headers), None)
+        if source and source not in mapping.values():
+            mapping[field] = source
+    return mapping

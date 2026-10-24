@@ -1,12 +1,15 @@
 {% extends "base.html" %}
 {% from "_macros.html" import scanbox, picker, camera_script %}
 {% set draft = sale.status == 'draft' %}
-{% block title %}{{ 'New bill' if draft else 'Bill ' ~ sale.number }}{% endblock %}
+{% set can_rate = current_user.can('rates') %}
+{% set loyalty_on = store.loyalty_rate > 0 %}
+{% block title %}{{ 'New bill' if draft else sale.title }}{% endblock %}
 {% block content %}
 <div class="page-head">
   <div>
-    <h1>{% if draft %}New bill{% else %}Bill {{ sale.number }} <span class="badge {{ sale.status }}">{{ sale.status }}</span>{% endif %}</h1>
-    <div class="muted small">{{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}{% if sale.cashier_name %} · Cashier: {{ sale.cashier_name }}{% endif %}</div>
+    <h1>{% if draft %}New bill{% else %}{{ sale.title }} <span class="badge {{ sale.status }}">{{ sale.status }}</span>{% endif %}</h1>
+    <div class="muted small">{{ sale.created_at.strftime('%d %b %Y, %I:%M %p') }}{% if sale.cashier_name %} · Cashier: {{ sale.cashier_name }}{% endif %}
+      {% if sale.is_return and sale.return_of %} · against <a href="{{ url_for('sales.bill', sale_id=sale.return_of_id) }}">Bill {{ sale.return_of.number }}</a>{% endif %}</div>
   </div>
   <div class="row no-print">
     {% if held %}<span class="muted small">Held bills:</span>
@@ -18,9 +21,17 @@
 </div>
 
 {% if draft %}
-<div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id), url_for('sales.add', sale_id=sale.id)) }}</div>
+<div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id), url_for('sales.add', sale_id=sale.id)) }}
+  {% if offers %}<div class="small" style="margin-top:.5rem">🏷️ Offers running: {% for o in offers %}<span class="badge ok">{{ o.name }}</span> {% endfor %}</div>{% endif %}
+</div>
 {% set create = url_for('products.edit', add_to='sale:%d' % sale.id) if current_user.can('products') else None %}
 {{ picker(matches, url_for('sales.add', sale_id=sale.id), add_qty, q, create) }}
+{% endif %}
+
+{% if not draft and sale.returns %}
+<div class="card small">Returns against this bill:
+  {% for r in sale.returns %}<a href="{{ url_for('sales.bill', sale_id=r.id) }}">{{ r.title }}</a> (₹{{ (-r.net)|inr }}{% if r.status == 'cancelled' %}, cancelled{% endif %}){{ ', ' if not loop.last }}{% endfor %}
+</div>
 {% endif %}
 
 <form method="post" action="{{ url_for('sales.update', sale_id=sale.id) }}" data-autosubmit>
@@ -31,14 +42,25 @@
         <thead><tr><th>#</th><th>Product</th><th class="num">Stock</th><th class="num">MRP</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Disc %</th><th class="num">Amount</th>{% if draft %}<th></th>{% endif %}</tr></thead>
         <tbody>
         {% for item in sale.items %}
+        {% set batches = item.product.batches_in_stock if draft and item.product else [] %}
         <tr class="{{ 'flash-row' if item.id == last }}">
           <td class="muted">{{ loop.index }}</td>
-          <td>{{ item.name }}{% if item.product and item.product.barcode %}<div class="small muted">{{ item.product.barcode }}</div>{% endif %}</td>
-          <td class="num muted">{{ item.product.stock|qty if item.product else '' }}</td>
+          <td>{{ item.name }}
+            <div class="small muted">{{ item.product.barcode if item.product and item.product.barcode else '' }}
+              {% if item.batch and not batches|length > 1 %}{{ item.batch.label }}{% endif %}</div>
+            {% if batches|length > 1 %}
+              <select name="batch_{{ item.id }}" data-recalc class="small" style="margin-top:.2rem;padding:.15rem .3rem;min-width:220px" aria-label="Batch / MRP">
+                {% for b in batches %}<option value="{{ b.id }}" {{ 'selected' if b.id == item.batch_id }}>{{ b.label }} · stock {{ b.qty|qty }}</option>{% endfor %}
+                {% if item.batch and item.batch not in batches %}<option value="{{ item.batch_id }}" selected>{{ item.batch.label }}</option>{% endif %}
+              </select>
+            {% endif %}
+            {% if item.promo_note %}<div class="small" style="color:var(--ok)">🏷️ {{ item.promo_note }}: −₹{{ item.promo_amount|inr }}</div>{% endif %}
+          </td>
+          <td class="num muted">{{ (item.batch.qty if item.batch else item.product.stock)|qty if item.product else '' }}</td>
           <td class="num">{{ item.mrp|inr }}</td>
           {% if draft %}
           <td class="num"><input name="qty_{{ item.id }}" value="{{ item.qty|qty }}" inputmode="decimal" data-recalc aria-label="Quantity"></td>
-          <td class="num"><input name="rate_{{ item.id }}" value="{{ item.rate }}" inputmode="decimal" data-recalc aria-label="Rate"></td>
+          <td class="num">{% if can_rate %}<input name="rate_{{ item.id }}" value="{{ item.rate }}" inputmode="decimal" data-recalc aria-label="Rate">{% else %}{{ item.rate|inr }}{% endif %}</td>
           <td class="num"><input name="disc_{{ item.id }}" value="{{ item.disc_pct|qty }}" inputmode="decimal" data-recalc style="min-width:55px" aria-label="Discount percent"></td>
           {% else %}
           <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.rate|inr }}</td><td class="num">{{ item.disc_pct|qty }}</td>
@@ -51,7 +73,8 @@
         {% endfor %}
         </tbody>
       </table>
-      <div class="muted small" style="margin-top:.5rem">{{ sale.items|length }} item{{ 's' if sale.items|length != 1 }} · total qty {{ sale.total_qty|qty }}</div>
+      <div class="muted small" style="margin-top:.5rem">{{ sale.items|length }} item{{ 's' if sale.items|length != 1 }} · total qty {{ sale.total_qty|qty }}
+        {% if draft and current_user.discount_limit < 100 %} · your discount limit {{ current_user.discount_limit|qty }}%{% endif %}</div>
     </div>
 
     <div class="card totals">
@@ -60,7 +83,7 @@
       <input data-autocomplete="customers" data-pick="select:party_id" placeholder="Search customer by name or mobile" aria-label="Search customer" style="margin-bottom:.35rem">
       <select id="party_id" name="party_id" onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))">
         <option value="">Walk-in Customer</option>
-        {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if sale.party_id == c.id }}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>{% endfor %}
+        {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if sale.party_id == c.id }}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}{% if c.price_list == 'wholesale' %} · wholesale{% endif %}</option>{% endfor %}
       </select>
       <details class="small" style="margin-top:.35rem"><summary>+ New customer</summary>
         <div class="row" style="margin-top:.4rem">
@@ -72,19 +95,28 @@
       {% else %}
       <div>{{ sale.customer_name }}{% if sale.party and sale.party.phone %} · {{ sale.party.phone }}{% endif %}</div>
       {% endif %}
+      {% if sale.party and sale.price_list == 'wholesale' %}<div class="small"><span class="badge warn">Wholesale rates</span></div>{% endif %}
 
       <div style="margin-top:.9rem">
         <div class="line"><span>Gross</span><span>₹{{ sale.gross|inr }}</span></div>
         <div class="line"><span>Discount (₹)</span>
           {% if draft %}<input name="discount" value="{{ sale.discount }}" inputmode="decimal" data-recalc style="width:110px;text-align:right">{% else %}<span>−₹{{ sale.discount|inr }}</span>{% endif %}
         </div>
+        {% if sale.promo_discount|float %}<div class="line small" style="color:var(--ok)"><span>🏷️ {{ sale.promo_note }}</span><span>−₹{{ sale.promo_discount|inr }}</span></div>{% endif %}
+        {% if draft and sale.party and loyalty_on %}
+          {% set available = sale.party.points %}
+          <div class="line small"><span>⭐ Use points <span class="muted">({{ available }} available, 1 = ₹{{ store.loyalty_value|qty }})</span></span>
+            <input name="points" value="{{ sale.points_redeemed or '' }}" inputmode="numeric" data-recalc style="width:80px;text-align:right" placeholder="0" aria-label="Points to use"></div>
+        {% endif %}
+        {% if sale.redeem_amount|float %}<div class="line small"><span>⭐ Points used ({{ sale.points_redeemed }})</span><span>−₹{{ sale.redeem_amount|inr }}</span></div>{% endif %}
         {% if sale.taxed %}<div class="line muted small"><span>incl. GST</span><span>₹{{ sale.tax|inr }}</span></div>{% endif %}
         <div class="line muted small"><span>Round off</span><span>{{ sale.round_off|inr }}</span></div>
-        <div class="net">₹{{ sale.net|inr }}</div>
-        {% if sale.savings > 0 %}<div class="right small" style="color:var(--ok)">Customer saves ₹{{ sale.savings|inr }}</div>{% endif %}
+        <div class="net">{% if sale.is_return %}Refund ₹{{ (-sale.net)|inr }}{% else %}₹{{ sale.net|inr }}{% endif %}</div>
+        {% if sale.savings > 0 and not sale.is_return %}<div class="right small" style="color:var(--ok)">Customer saves ₹{{ sale.savings|inr }}</div>{% endif %}
+        {% if sale.points_earned and not draft %}<div class="right small">⭐ {{ sale.points_earned }} points earned</div>{% endif %}
       </div>
 
-      <label>Payment</label>
+      <label>{{ 'Refund' if sale.is_return else 'Payment' }}</label>
       {% if draft %}
       <div class="modes">
         {% for m in modes %}<label><input type="radio" name="payment_mode" value="{{ m }}" {{ 'checked' if sale.payment_mode == m }} onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))"><span>{{ m }}</span></label>{% endfor %}
@@ -109,10 +141,14 @@
       <div>{{ sale.payment_mode|upper }}{% if sale.due > 0 %} · <span class="badge bad">Due ₹{{ sale.due|inr }}</span>{% endif %}</div>
       {% if sale.status == 'saved' %}
       <div class="grid" style="margin-top:1rem">
-        <a class="btn success" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">🖨 Print receipt</a>
-        <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">📄 A4 GST invoice</a>
-        <a class="btn whatsapp" href="{{ url_for('sales.receipt', sale_id=sale.id) }}#whatsapp">WhatsApp bill</a>
-        <button class="danger" form="cancel" onclick="return confirm('Cancel bill {{ sale.number }}? Stock will be returned.')">Cancel bill</button>
+        {% if store.printer_mode != 'browser' %}<button class="success" form="print-direct">🖨 Print receipt</button>{% endif %}
+        <a class="btn {{ 'secondary' if store.printer_mode != 'browser' else 'success' }}" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">{{ '🖨 Print receipt' if store.printer_mode == 'browser' else 'Receipt on screen' }}</a>
+        <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">📄 A4 {{ 'credit note' if sale.is_return else 'GST invoice' }}</a>
+        <a class="btn whatsapp" href="{{ url_for('sales.receipt', sale_id=sale.id) }}#whatsapp">WhatsApp</a>
+        {% if current_user.can('cancel') %}
+          {% if not sale.is_return %}<a class="btn secondary" href="{{ url_for('sales.make_return', sale_id=sale.id) }}">↩ Return items</a>{% endif %}
+          <button class="danger" form="cancel" onclick="return confirm('Cancel {{ sale.title }}? Stock will be reversed.')">Cancel {{ 'credit note' if sale.is_return else 'bill' }}</button>
+        {% endif %}
       </div>
       {% endif %}
       {% endif %}
@@ -124,6 +160,7 @@
 <form id="discard" method="post" action="{{ url_for('sales.discard', sale_id=sale.id) }}"></form>
 {% else %}
 <form id="cancel" method="post" action="{{ url_for('sales.cancel', sale_id=sale.id) }}"></form>
+<form id="print-direct" method="post" action="{{ url_for('sales.print_direct', sale_id=sale.id) }}"></form>
 {% endif %}
 {% endblock %}
 {% block scripts %}{% if draft %}{{ camera_script() }}{% endif %}{% endblock %}

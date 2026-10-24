@@ -82,6 +82,12 @@ td input { padding: .35rem .45rem; min-width: 70px; text-align: right; }
 .flash.error { background: var(--bad-soft); color: var(--bad); border-color: #fecdca; }
 .flash.success { background: var(--ok-soft); color: var(--ok); border-color: #abefc6; }
 
+/* Tabs (settings sections) */
+.tabs { display: flex; gap: .25rem; flex-wrap: wrap; margin-bottom: 1rem; border-bottom: 1px solid var(--line); }
+.tabs a { padding: .55rem .9rem; color: var(--muted); font-weight: 600; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs a:hover { color: var(--text); text-decoration: none; }
+.tabs a.active { color: var(--brand); border-bottom-color: var(--brand); }
+
 /* Live search dropdown */
 .ac-wrap { position: relative; flex: 1; min-width: 0; }
 .ac-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgba(16,24,40,.16); max-height: 360px; overflow-y: auto; }

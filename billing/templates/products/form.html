@@ -4,14 +4,18 @@
 {% block content %}
 <div class="page-head">
   <h1>{{ 'Edit product' if product.id else 'New product' }}</h1>
-  <a class="btn secondary" href="{{ url_for('products.index') }}">All products</a>
+  <div class="row">
+    {% if product.id %}<form method="post" action="{{ url_for('products.labels') }}"><input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="copies" value="1"><button class="secondary">🏷️ Add to labels</button></form>{% endif %}
+    <a class="btn secondary" href="{{ url_for('products.index') }}">All products</a>
+  </div>
 </div>
 <form method="post" class="card">
   <div class="grid cols-2">
     <div><label for="name">Name *</label><input id="name" name="name" value="{{ product.name or '' }}" required {{ 'autofocus' if product.barcode and not product.id }}></div>
     <div><label for="barcode">Barcode</label>
       <div class="scanbar"><input id="barcode" name="barcode" value="{{ product.barcode or '' }}" data-barcode-field {{ 'autofocus' if not product.barcode }} placeholder="Scan the product's barcode" autocomplete="off">
-      <button type="button" class="secondary" data-camera="barcode">📷 Camera</button></div>
+      <button type="button" class="secondary" data-camera="barcode">📷 Camera</button>
+      {% if product.id and not product.barcode %}<button class="secondary" form="make-barcode" title="Create an in-store barcode to print on labels">Create</button>{% endif %}</div>
       <div id="camera"></div></div>
   </div>
   <div class="grid cols-4">
@@ -24,21 +28,42 @@
   <div class="grid cols-4">
     <div><label for="mrp">MRP (₹)</label><input id="mrp" name="mrp" inputmode="decimal" value="{{ product.mrp if product.mrp is not none else '' }}"></div>
     <div><label for="sale_rate">Sale rate (₹, incl. GST)</label><input id="sale_rate" name="sale_rate" inputmode="decimal" value="{{ product.sale_rate if product.sale_rate is not none else '' }}"></div>
+    <div><label for="wholesale_rate">Wholesale rate (₹)</label><input id="wholesale_rate" name="wholesale_rate" inputmode="decimal" value="{{ product.wholesale_rate if product.wholesale_rate else '' }}" placeholder="same as sale rate"></div>
     <div><label for="purchase_rate">Purchase rate (₹, before GST)</label><input id="purchase_rate" name="purchase_rate" inputmode="decimal" value="{{ product.purchase_rate if product.purchase_rate is not none else '' }}"></div>
+  </div>
+  <div class="grid cols-4">
     <div><label for="gst_rate">GST slab</label><select id="gst_rate" name="gst_rate">
       {% for s in slabs %}<option value="{{ s.rate }}" {{ 'selected' if product.gst_rate is not none and s.rate == product.gst_rate }}>{{ s.name }}</option>{% endfor %}
     </select></div>
-  </div>
-  <div class="grid cols-4">
-    <div><label for="stock">{{ 'Current stock' if product.id else 'Opening stock' }}</label><input id="stock" name="stock" inputmode="decimal" value="{{ product.stock|qty if product.stock is not none else '0' }}"></div>
+    <div><label for="stock">{{ 'Current stock' if product.id else 'Opening stock' }}</label>
+      {% if product.batches %}<input id="stock" value="{{ product.stock|qty }}" disabled title="Batch stock changes through purchases and stock adjustment">
+      {% else %}<input id="stock" name="stock" inputmode="decimal" value="{{ product.stock|qty if product.stock is not none else '0' }}">{% endif %}</div>
     <div><label for="min_stock">Low-stock alert at</label><input id="min_stock" name="min_stock" inputmode="decimal" value="{{ product.min_stock|qty if product.min_stock is not none else '0' }}"></div>
+    <div><label for="plu">Scale PLU (loose items)</label><input id="plu" name="plu" inputmode="numeric" value="{{ product.plu or '' }}" placeholder="e.g. 101"></div>
   </div>
   <div class="row" style="margin-top:1rem">
     <button>Save</button>
     {% if not request.args.get('add_to') %}<button class="secondary" name="next" value="new">Save &amp; add another</button>{% endif %}
   </div>
 </form>
+
+{% if product.batches %}
+<div class="card table-wrap">
+  <h2>Batches</h2>
+  <table>
+    <tr><th>Batch</th><th>Expiry</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Cost</th><th class="num">Stock</th></tr>
+    {% for b in product.batches|reverse %}
+    <tr><td>{{ b.batch_no or '—' }}</td>
+      <td>{% if b.expiry %}{{ b.expiry.strftime('%d-%m-%Y') }}{% if b.expiry < today %} <span class="badge bad">expired</span>{% endif %}{% else %}—{% endif %}</td>
+      <td class="num">{{ b.mrp|inr }}</td><td class="num">{{ b.sale_rate|inr }}</td><td class="num">{{ b.purchase_rate|inr }}</td><td class="num">{{ b.qty|qty }}</td></tr>
+    {% endfor %}
+  </table>
+  <p class="small muted">Bills sell the batch that expires first. When batches have different MRPs, the cashier can pick the MRP on the bill.</p>
+</div>
+{% endif %}
+
 {% if product.id %}
+<form id="make-barcode" method="post" action="{{ url_for('products.make_barcode', product_id=product.id) }}"></form>
 <form method="post" action="{{ url_for('products.delete', product_id=product.id) }}" onsubmit="return confirm('Delete {{ product.name }}?')">
   <button class="danger">Delete product</button>
 </form>

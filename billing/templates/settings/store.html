@@ -1,0 +1,16 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<form method="post" action="{{ url_for('settings.save_store') }}" class="card" style="max-width:760px">
+  <label for="store_name">Store name</label><input id="store_name" name="store_name" value="{{ store.store_name }}" required>
+  <label for="address">Address</label><textarea id="address" name="address" rows="2">{{ store.address or '' }}</textarea>
+  <div class="grid cols-2">
+    <div><label for="phone">Phone</label><input id="phone" name="phone" value="{{ store.phone or '' }}"></div>
+    <div><label for="gstin">GSTIN</label><input id="gstin" name="gstin" value="{{ store.gstin or '' }}"></div>
+  </div>
+  <label for="upi_id">UPI ID (for payment QR on bills)</label><input id="upi_id" name="upi_id" value="{{ store.upi_id or '' }}" placeholder="pmart@okaxis">
+  <label for="bill_footer">Bill footer</label><input id="bill_footer" name="bill_footer" value="{{ store.bill_footer or '' }}">
+  <label class="check"><input type="checkbox" name="gst_on_sales" value="1" {{ 'checked' if store.gst_on_sales }}> Charge GST on sales (regular GST dealer)</label>
+  <p class="small muted">Untick if you are under the <b>composition scheme</b>: bills become “Bill of Supply” with no GST shown, and product costs include the GST you paid.</p>
+  <button>Save</button>
+</form>
+{% endblock %}

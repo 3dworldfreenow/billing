@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Return items · Bill {{ sale.number }}{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Return items from Bill {{ sale.number }}</h1>
+  <a class="btn secondary" href="{{ url_for('sales.bill', sale_id=sale.id) }}">Back to bill</a></div>
+<form method="post" class="card">
+  <p class="muted">{{ sale.customer_name }} · {{ sale.created_at.strftime('%d %b %Y') }} · paid by {{ sale.payment_mode|upper }}. Enter how many of each item came back. Stock goes back and a credit note is made.</p>
+  <div class="table-wrap"><table>
+    <tr><th>Product</th><th class="num">Sold</th><th class="num">Can return</th><th class="num">Rate</th><th class="num">Return qty</th></tr>
+    {% for item, left in lines %}
+    <tr><td>{{ item.name }}{% if item.batch %}<div class="small muted">{{ item.batch.label }}</div>{% endif %}</td>
+      <td class="num">{{ item.qty|qty }}</td><td class="num">{{ left|qty }}</td><td class="num">{{ item.rate|inr }}</td>
+      <td class="num">{% if left > 0 %}<input name="qty_{{ item.id }}" inputmode="decimal" placeholder="0" style="width:90px" {{ 'autofocus' if loop.first }} aria-label="Return quantity of {{ item.name }}">{% else %}<span class="muted">all returned</span>{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+  <div class="row" style="margin-top:1rem">
+    <div><label for="mode">Refund by</label>
+      <select id="mode" name="mode">
+        {% for m in modes %}<option value="{{ m }}" {{ 'selected' if m == sale.payment_mode }}>{{ 'Adjust in customer account' if m == 'credit' else m|upper }}</option>{% endfor %}
+      </select></div>
+    <button class="big">Make credit note</button>
+  </div>
+  {% if sale.total_discount > 0 %}<p class="small muted">Bill discounts are refunded in proportion, so the customer gets back what they actually paid.</p>{% endif %}
+</form>
+{% endblock %}

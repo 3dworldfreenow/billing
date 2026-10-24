@@ -1,4 +1,3 @@
-import os
 import sqlite3
 
 from billing import create_app

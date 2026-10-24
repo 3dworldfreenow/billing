@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Cash register{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Cash register</h1><div class="muted small">{{ day.strftime('%A, %d %b %Y') }}{% if closed %} · <span class="badge ok">closed</span>{% endif %}</div></div>
+  <form method="get" class="row no-print">
+    <div><label for="day">Day</label><input id="day" type="date" name="day" value="{{ day }}" onchange="this.form.submit()"></div>
+    {% if users %}<div><label for="user_id">Cashier</label><select id="user_id" name="user_id" onchange="this.form.submit()">
+      <option value="">Whole shop</option>{% for u in users %}<option value="{{ u.id }}" {{ 'selected' if u.id == user_id }}>{{ u.name }}</option>{% endfor %}</select></div>{% endif %}
+  </form>
+</div>
+
+<div class="grid cols-4">
+  <div class="card stat"><div class="label">Cash expected in drawer</div><div class="value" style="color:var(--brand)">₹{{ r.expected|inr }}</div></div>
+  <div class="card stat"><div class="label">UPI</div><div class="value">₹{{ r.upi|inr }}</div></div>
+  <div class="card stat"><div class="label">Card</div><div class="value">₹{{ r.card|inr }}</div></div>
+  <div class="card stat"><div class="label">Credit given</div><div class="value">₹{{ r.credit_given|inr }}</div></div>
+</div>
+
+<div class="grid cols-2" style="align-items:start">
+  <div class="card">
+    <h2>Cash in drawer</h2>
+    <table>
+      {% for label, key, sign in [('Opening cash', 'opening', '+'), ('Cash sales (after refunds)', 'cash_sales', '+'), ('Paid now on credit bills', 'credit_paid', '+'), ('Received from customers', 'receipts', '+'), ('Cash added', 'cash_in', '+'), ('Paid to suppliers', 'supplier_payments', '−'), ('Purchases paid in cash', 'purchases', '−'), ('Cash taken out', 'cash_out', '−'), ('Cash expenses', 'expenses', '−')] %}
+      <tr><td>{{ label }}</td><td class="num">{{ sign }} ₹{{ r[key]|inr }}</td></tr>
+      {% endfor %}
+      <tr class="total"><td>Expected cash</td><td class="num">₹{{ r.expected|inr }}</td></tr>
+    </table>
+    <form method="post" action="{{ url_for('cash.close') }}" class="row" style="margin-top:1rem">
+      <input type="hidden" name="day" value="{{ day }}"><input type="hidden" name="user_id" value="{{ user_id or '' }}">
+      <div class="field"><label for="counted">Cash counted</label><input id="counted" name="counted" inputmode="decimal" required value="{{ closed.counted if closed else '' }}"></div>
+      <div class="field"><label for="close_note">Note</label><input id="close_note" name="note" value="{{ closed.note or '' if closed else '' }}"></div>
+      <button>{{ 'Update day close' if closed else 'Close day' }}</button>
+    </form>
+    {% if closed %}<p class="small">Closed by {{ closed.closed_by.name if closed.closed_by else '' }}: counted ₹{{ closed.counted|inr }},
+      {% if closed.difference == 0 %}<span class="badge ok">matches</span>{% elif closed.difference > 0 %}<span class="badge warn">extra ₹{{ closed.difference|inr }}</span>{% else %}<span class="badge bad">short ₹{{ (-closed.difference)|inr }}</span>{% endif %}</p>{% endif %}
+  </div>
+
+  <div>
+    <form method="post" action="{{ url_for('cash.entry') }}" class="card">
+      <h2>Cash in / out</h2>
+      <div class="row">
+        <div><label for="kind">Type</label><select id="kind" name="kind"><option value="opening">Opening cash</option><option value="in">Cash added</option><option value="out">Cash taken out</option></select></div>
+        <div class="field"><label for="amount">Amount (₹)</label><input id="amount" name="amount" inputmode="decimal" required></div>
+        <div class="field"><label for="entry_note">Note</label><input id="entry_note" name="note" placeholder="e.g. owner took cash"></div>
+        <button>Save</button>
+      </div>
+    </form>
+    <form method="post" action="{{ url_for('cash.expense') }}" class="card">
+      <h2>Expense</h2>
+      <div class="row">
+        <div class="field"><label for="category">Category</label><input id="category" name="category" list="expense-categories" required>
+          <datalist id="expense-categories">{% for c in categories %}<option value="{{ c }}">{% endfor %}</datalist></div>
+        <div class="field"><label for="exp_amount">Amount (₹)</label><input id="exp_amount" name="amount" inputmode="decimal" required></div>
+        <div><label for="mode">Paid by</label><select id="mode" name="mode">{% for m in expense_modes %}<option value="{{ m }}">{{ m|upper }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="exp_note">Note</label><input id="exp_note" name="note"></div>
+        <button>Save</button>
+      </div>
+    </form>
+    <div class="card table-wrap">
+      <h2>Today's entries</h2>
+      <table>
+        {% for e in r.entries %}<tr><td>{{ e.created_at.strftime('%I:%M %p') }}</td><td>{{ {'opening': 'Opening cash', 'in': 'Cash added', 'out': 'Cash taken out'}[e.kind] }}</td><td>{{ e.note or '' }}</td><td class="num">₹{{ e.amount|inr }}</td></tr>{% endfor %}
+        {% for e in r.expense_list %}<tr><td>{{ e.created_at.strftime('%I:%M %p') }}</td><td>Expense: {{ e.category }} ({{ e.mode|upper }})</td><td>{{ e.note or '' }}</td><td class="num">₹{{ e.amount|inr }}</td></tr>{% endfor %}
+        {% if not r.entries and not r.expense_list %}<tr><td class="empty">Nothing yet.</td></tr>{% endif %}
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="card table-wrap">
+  <h2>Recent day closes</h2>
+  <table>
+    <tr><th>Day</th><th>Cashier</th><th class="num">Expected</th><th class="num">Counted</th><th class="num">Difference</th><th>Closed by</th><th>Note</th></tr>
+    {% for c in closes %}
+    <tr><td><a href="{{ url_for('cash.index', day=c.day, user_id=c.user_id) }}">{{ c.day.strftime('%d-%m-%Y') }}</a></td><td>{{ c.user.name if c.user else 'Whole shop' }}</td>
+      <td class="num">{{ c.expected|inr }}</td><td class="num">{{ c.counted|inr }}</td>
+      <td class="num">{% if c.difference == 0 %}<span class="badge ok">0</span>{% elif c.difference > 0 %}<span class="badge warn">+{{ c.difference|inr }}</span>{% else %}<span class="badge bad">{{ c.difference|inr }}</span>{% endif %}</td>
+      <td>{{ c.closed_by.name if c.closed_by else '' }}</td><td>{{ c.note or '' }}</td></tr>
+    {% else %}<tr><td colspan="7" class="empty">No day closed yet.</td></tr>{% endfor %}
+  </table>
+</div>
+{% endblock %}

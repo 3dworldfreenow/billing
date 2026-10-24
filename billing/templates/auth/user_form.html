@@ -16,6 +16,9 @@
     <label class="check"><input type="checkbox" name="perm_{{ key }}" value="1" {{ 'checked' if key in user.permissions.split(',') }}> {{ label }}</label>
     {% endfor %}
   </div>
+  <div class="grid cols-2"><div><label for="max_discount">Maximum discount a user can give (%)</label>
+    <input id="max_discount" name="max_discount" inputmode="decimal" value="{{ user.max_discount|qty if user.max_discount is not none else 100 }}">
+    <div class="small muted">On a line or on the whole bill. Admins have no limit.</div></div></div>
   <label class="check"><input type="checkbox" name="active" value="1" {{ 'checked' if user.active }}> Active (can log in)</label>
   <p><button>Save user</button></p>
 </form>

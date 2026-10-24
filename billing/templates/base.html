@@ -15,25 +15,36 @@
     <div class="logo"><span>🛒</span>{{ store.store_name }}</div>
     <nav>
       {% macro item(endpoint, label, icon, active) %}<a href="{{ url_for(endpoint) }}" class="{{ 'active' if active }}">{{ icon }} {{ label }}</a>{% endmacro %}
-      {% if current_user.can('sales') %}
-        {{ item('sales.pos', 'Billing', '🧾', ep.startswith('sales.') and ep != 'sales.sales_list') }}
-        {{ item('sales.sales_list', 'Bills', '📄', ep == 'sales.sales_list') }}
+      {% set can = current_user.can %}
+      {% if can('sales') or can('cash') %}<div class="section">Sell</div>{% endif %}
+      {% if can('sales') %}
+        {{ item('sales.pos', 'Billing', '🧾', ep.startswith('sales.') and ep not in ('sales.sales_list',)) }}
+        {{ item('sales.sales_list', 'Bills & returns', '📄', ep == 'sales.sales_list') }}
       {% endif %}
-      {% if current_user.can('purchases') %}{{ item('purchases.index', 'Purchases', '📦', ep.startswith('purchases.')) }}{% endif %}
-      {% if current_user.can('products') or current_user.can('stock') %}<div class="section">Inventory</div>{% endif %}
-      {% if current_user.can('products') %}{{ item('products.index', 'Products', '🏷️', ep.startswith('products.')) }}{% endif %}
-      {% if current_user.can('stock') %}{{ item('stock.index', 'Stock adjust', '⚖️', ep.startswith('stock.')) }}{% endif %}
-      {% if current_user.can('parties') %}
-        <div class="section">Parties</div>
+      {% if can('cash') %}{{ item('cash.index', 'Cash register', '💰', ep.startswith('cash.')) }}{% endif %}
+      {% if can('purchases') %}
+        <div class="section">Buy</div>
+        {{ item('purchases.index', 'Purchases', '📦', ep.startswith('purchases.') and ep != 'purchases.reorder') }}
+        {{ item('purchases.reorder', 'Reorder list', '📋', ep == 'purchases.reorder') }}
+      {% endif %}
+      {% if can('products') or can('stock') %}<div class="section">Inventory</div>{% endif %}
+      {% if can('products') %}
+        {{ item('products.index', 'Products', '🏷️', ep.startswith('products.') and not ep.startswith('products.labels')) }}
+        {{ item('products.labels', 'Price labels', '🔖', ep.startswith('products.labels')) }}
+      {% endif %}
+      {% if can('stock') %}{{ item('stock.index', 'Stock adjust', '⚖️', ep.startswith('stock.')) }}{% endif %}
+      {% if can('parties') or can('offers') %}<div class="section">Customers</div>{% endif %}
+      {% if can('parties') %}
         {{ item('parties.customers', 'Customers', '👥', ep == 'parties.customers' or (ep.startswith('parties.') and request.view_args.get('kind') == 'customer')) }}
         {{ item('parties.suppliers', 'Suppliers', '🚚', ep == 'parties.suppliers' or (ep.startswith('parties.') and request.view_args.get('kind') == 'supplier')) }}
       {% endif %}
-      {% if current_user.can('reports') %}
+      {% if can('offers') %}{{ item('offers.index', 'Offers & loyalty', '🎁', ep.startswith('offers.')) }}{% endif %}
+      {% if can('reports') %}
         <div class="section">Insights</div>
         {{ item('reports.dashboard', 'Dashboard & reports', '📊', ep.startswith('reports.')) }}
       {% endif %}
-      {% if current_user.can('settings') or current_user.is_admin %}<div class="section">Admin</div>{% endif %}
-      {% if current_user.can('settings') %}{{ item('settings.index', 'Settings & GST', '⚙️', ep.startswith('settings.')) }}{% endif %}
+      {% if can('settings') or current_user.is_admin %}<div class="section">Admin</div>{% endif %}
+      {% if can('settings') %}{{ item('settings.index', 'Settings', '⚙️', ep.startswith('settings.')) }}{% endif %}
       {% if current_user.is_admin %}{{ item('auth.users', 'Users', '🔐', ep in ('auth.users', 'auth.user_form')) }}{% endif %}
     </nav>
     <div class="user">

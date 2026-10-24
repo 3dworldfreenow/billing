@@ -13,11 +13,16 @@
   <div class="row no-print">
     {% set _ = args.update(export='xlsx') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ Excel</a>
     {% set _ = args.update(export='csv') %}<a class="btn secondary" href="{{ url_for(request.endpoint, **args) }}">⬇ CSV</a>
+    {% for label, url in actions %}<a class="btn" href="{{ url }}">{{ label }}</a>{% endfor %}
     <button class="secondary" onclick="window.print()">🖨 Print</button>
     <a class="btn secondary" href="{{ url_for('reports.dashboard') }}">All reports</a>
   </div>
 </div>
 {% if filters == 'dates' %}<div class="card no-print">{{ date_filter(date_from, date_to) }}</div>
+{% elif filters == 'movement' %}<div class="card no-print">{% call date_filter(date_from, date_to) %}
+  <div><label for="show">Show</label><select id="show" name="show"><option value="">All</option>{% for v in ('fast', 'slow', 'dead') %}<option value="{{ v }}" {{ 'selected' if show == v }}>{{ v|capitalize }}</option>{% endfor %}</select></div>{% endcall %}</div>
+{% elif filters == 'expiry' %}<form method="get" class="card row no-print"><div><label for="days">Expiring within</label>
+  <select id="days" name="days" onchange="this.form.submit()">{% for d in (0, 15, 30, 60, 90, 180) %}<option value="{{ d }}" {{ 'selected' if d == days }}>{{ 'Already expired' if d == 0 else d ~ ' days' }}</option>{% endfor %}</select></div></form>
 {% elif filters == 'stock' %}
 <form method="get" class="card row no-print" data-live="#results">
   <div class="field"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Name, brand or barcode"></div>

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Invoice {{ sale.number }} · {{ store.store_name }}</title>
+<title>{{ sale.title }} · {{ store.store_name }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <style>
   body { background: #fff; }
@@ -21,8 +21,9 @@
       {% if store.address %}<div>{{ store.address }}</div>{% endif %}
       {% if store.phone %}<div>Phone: {{ store.phone }}</div>{% endif %}
       {% if store.gstin %}<div><b>GSTIN: {{ store.gstin }}</b></div>{% endif %}</div>
-    <div class="right"><h2 style="margin:0">{{ 'TAX INVOICE' if sale.taxed else 'BILL OF SUPPLY' }}</h2>
-      <div>Invoice No: <b>{{ sale.number }}</b></div><div>Date: {{ sale.created_at.strftime('%d-%m-%Y') }}</div>
+    <div class="right"><h2 style="margin:0">{{ 'CREDIT NOTE' if sale.is_return else 'TAX INVOICE' if sale.taxed else 'BILL OF SUPPLY' }}</h2>
+      <div>{{ 'Credit note' if sale.is_return else 'Invoice' }} No: <b>{{ sale.doc_no }}</b></div>
+      {% if sale.is_return and sale.return_of %}<div>Against invoice {{ sale.return_of.number }}</div>{% endif %}<div>Date: {{ sale.created_at.strftime('%d-%m-%Y') }}</div>
       {% if sale.status == 'cancelled' %}<div class="badge cancelled">Cancelled</div>{% endif %}</div>
   </div>
   <p><b>Bill to:</b> {{ sale.customer_name }}
@@ -49,7 +50,7 @@
     </div>
     <table>
       <tr><td>Gross</td><td class="num">{{ sale.gross|inr }}</td></tr>
-      {% if sale.discount > 0 %}<tr><td>Discount</td><td class="num">-{{ sale.discount|inr }}</td></tr>{% endif %}
+      {% if sale.total_discount|float %}<tr><td>Discounts &amp; offers</td><td class="num">-{{ sale.total_discount|inr }}</td></tr>{% endif %}
       {% if sale.taxed %}<tr><td>GST included</td><td class="num">{{ sale.tax|inr }}</td></tr>{% endif %}
       <tr><td>Round off</td><td class="num">{{ sale.round_off|inr }}</td></tr>
       <tr><td><b>Net amount</b></td><td class="num"><b>₹{{ sale.net|inr }}</b></td></tr>

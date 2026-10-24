@@ -6,8 +6,9 @@ from urllib.parse import quote
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from .. import inr
-from ..models import PAYMENT_MODES, D, Party, Product, Sale, SaleItem, Setting, db
-from ..services import BillError, cancel_sale, find_products, parse_decimal, parse_scan, save_sale
+from ..models import PAYMENT_MODES, Batch, D, Party, Product, Promotion, Sale, SaleItem, Setting, db
+from ..services import (BillError, apply_redeem, cancel_sale, create_return, find_products, log, parse_decimal,
+                        resolve_scan, returnable_qty, save_sale)
 from .reports import date_range
 
 bp = Blueprint("sales", __name__)
@@ -37,6 +38,15 @@ def _to_bill(sale, **params):
     return redirect(url_for("sales.bill", sale_id=sale.id, **params))
 
 
+def _recalc(sale):
+    sale.compute(Promotion.running())
+
+
+def _require(permission):
+    if not g.user.can(permission):
+        abort(403)
+
+
 @bp.route("/")
 def index():
     return redirect(url_for("sales.pos"))
@@ -59,6 +69,7 @@ def bill(sale_id):
         held=Sale.query.filter(Sale.status == "draft", Sale.id != sale.id, Sale.user_id == g.user.id,
                                Sale.items.any()).all(),
         matches=find_products(q) if q and sale.status == "draft" else [],
+        offers=Promotion.running() if sale.status == "draft" else [],
         q=q, last=request.args.get("last", type=int),
         add_qty=request.args.get("qty", "1"),
         modes=PAYMENT_MODES,
@@ -68,11 +79,10 @@ def bill(sale_id):
 @bp.route("/sales/<int:sale_id>/scan", methods=["POST"])
 def scan(sale_id):
     sale = _draft(sale_id)
-    qty, code = parse_scan(request.form.get("code", ""))
-    matches = find_products(code)
+    qty, matches, code = resolve_scan(request.form.get("code", ""))
     if len(matches) == 1:
         item = sale.add_product(matches[0], qty)
-        sale.compute()
+        _recalc(sale)
         db.session.commit()
         return _to_bill(sale, last=item.id)
     if not matches:
@@ -87,30 +97,52 @@ def add(sale_id):
     product = db.get_or_404(Product, request.form.get("product_id", type=int))
     qty = parse_decimal(request.form.get("qty", "1"), D(1))
     item = sale.add_product(product, qty if qty else D(1))
-    sale.compute()
+    _recalc(sale)
     db.session.commit()
     return _to_bill(sale, last=item.id)
 
 
 def _apply_form(sale, form):
+    limit = g.user.discount_limit
     for item in sale.items:
         qty = parse_decimal(form.get(f"qty_{item.id}"), D(item.qty))
         rate = parse_decimal(form.get(f"rate_{item.id}"), D(item.rate))
         disc = parse_decimal(form.get(f"disc_{item.id}"), D(item.disc_pct))
         if qty is None or rate is None or rate < 0 or disc is None or not 0 <= disc <= 100:
             raise BillError(f"Check the quantity, rate and discount of {item.name}.")
+        if disc > limit and disc != D(item.disc_pct):
+            raise BillError(f"Your discount limit is {limit.normalize():f}%.")
+        if rate != D(item.rate) and not g.user.can("rates"):
+            raise BillError("You are not allowed to change rates.")
+        batch_id = form.get(f"batch_{item.id}", type=int)
+        if batch_id and batch_id != item.batch_id:
+            batch = db.session.get(Batch, batch_id)
+            if batch and batch.product_id == item.product_id:
+                item.use_batch(batch, sale)
+                rate = D(item.rate)
         item.qty, item.rate, item.disc_pct = qty, rate, disc
 
     party_id = form.get("party_id", type=int)
     party = db.session.get(Party, party_id) if party_id else None
-    sale.party = party if party and party.kind == "customer" else None
+    party = party if party and party.kind == "customer" else None
+    if party != sale.party:
+        old_list = sale.price_list
+        sale.party = party
+        if sale.price_list != old_list:  # wholesale <-> retail customer: reprice the lines
+            for item in sale.items:
+                if item.product:
+                    item.use_batch(item.batch, sale)
     if form.get("payment_mode") in PAYMENT_MODES:
         sale.payment_mode = form["payment_mode"]
     discount = parse_decimal(form.get("discount", ""), D(0))
     paid = parse_decimal(form.get("paid", ""), D(0))
+    points = form.get("points", type=int, default=0)
     if discount is None or discount < 0 or paid is None or paid < 0:
         raise BillError("Discount and paid amount must be positive numbers.")
+    if discount and discount != D(sale.discount) and D(sale.gross) > 0 and discount * 100 / D(sale.gross) > limit:
+        raise BillError(f"Your discount limit is {limit.normalize():f}% of the bill.")
     sale.discount, sale.paid = discount, paid
+    apply_redeem(sale, points if sale.party else 0)
 
 
 @bp.route("/sales/<int:sale_id>/update", methods=["POST"])
@@ -127,7 +159,7 @@ def update(sale_id):
         item = db.session.get(SaleItem, int(action.split(":", 1)[1]))
         if item in sale.items:
             sale.items.remove(item)
-    sale.compute()
+    _recalc(sale)
     db.session.commit()
 
     if action not in ("save", "print"):
@@ -141,9 +173,24 @@ def update(sale_id):
         flash(str(e), "error")
         return _to_bill(sale)
     if action == "print":
-        return redirect(url_for("sales.receipt", sale_id=sale.id, autoprint=1))
+        return after_save_print(sale)
     flash(f"Bill {sale.number} saved: ₹{sale.net}.", "success")
     return redirect(url_for("sales.pos"))
+
+
+def after_save_print(sale):
+    """Print straight to the thermal printer when one is set up, else open the browser receipt."""
+    store = Setting.get()
+    if store.printer_mode != "browser" and store.auto_print:
+        from ..printing import PrinterError, print_sale
+
+        try:
+            print_sale(sale, open_drawer=sale.payment_mode == "cash")
+            flash(f"{sale.title} saved and printed: ₹{sale.net}.", "success")
+            return redirect(url_for("sales.pos"))
+        except PrinterError as e:
+            flash(f"Saved, but printing failed: {e}", "error")
+    return redirect(url_for("sales.receipt", sale_id=sale.id, autoprint=1))
 
 
 @bp.route("/sales/<int:sale_id>/customer", methods=["POST"])
@@ -160,25 +207,74 @@ def quick_customer(sale_id):
         party = Party(kind="customer", name=name, phone=phone)
         db.session.add(party)
     sale.party = party
+    for item in sale.items:  # a wholesale customer gets wholesale rates
+        if item.product:
+            item.use_batch(item.batch, sale)
+    _recalc(sale)
     db.session.commit()
     return _to_bill(sale)
 
 
 @bp.route("/sales/<int:sale_id>/discard", methods=["POST"])
 def discard(sale_id):
-    db.session.delete(_draft(sale_id))
+    sale = _draft(sale_id)
+    if sale.items:
+        log("discard bill", f"Unsaved bill with {len(sale.items)} items, ₹{sale.net}")
+    db.session.delete(sale)
     db.session.commit()
     return redirect(url_for("sales.pos"))
 
 
 @bp.route("/sales/<int:sale_id>/cancel", methods=["POST"])
 def cancel(sale_id):
+    _require("cancel")
     sale = db.get_or_404(Sale, sale_id)
     try:
         cancel_sale(sale)
         db.session.commit()
-        flash(f"Bill {sale.number} cancelled and stock returned.", "success")
+        flash(f"{sale.title} cancelled and stock returned.", "success")
     except BillError as e:
+        db.session.rollback()
+        flash(str(e), "error")
+    return _to_bill(sale)
+
+
+@bp.route("/sales/<int:sale_id>/return", methods=["GET", "POST"])
+def make_return(sale_id):
+    """Take goods back from a saved bill and issue a credit note."""
+    _require("cancel")
+    sale = db.get_or_404(Sale, sale_id)
+    lines = [(item, returnable_qty(item)) for item in sale.items if D(item.qty) > 0]
+    if request.method == "POST":
+        quantities = {}
+        for item, _ in lines:
+            qty = parse_decimal(request.form.get(f"qty_{item.id}", ""), D(0))
+            if qty is None:
+                flash(f"Check the quantity of {item.name}.", "error")
+                return redirect(url_for("sales.make_return", sale_id=sale.id))
+            quantities[item.id] = qty
+        mode = request.form.get("mode", "cash")
+        try:
+            note = create_return(sale, quantities, mode if mode in PAYMENT_MODES else "cash", g.user)
+            db.session.commit()
+        except BillError as e:
+            db.session.rollback()
+            flash(str(e), "error")
+            return redirect(url_for("sales.make_return", sale_id=sale.id))
+        flash(f"{note.title} saved. Refund ₹{-note.net} ({note.payment_mode.upper()}).", "success")
+        return _to_bill(note)
+    return render_template("sales/return.html", sale=sale, lines=lines, modes=PAYMENT_MODES)
+
+
+@bp.route("/sales/<int:sale_id>/print", methods=["POST"])
+def print_direct(sale_id):
+    from ..printing import PrinterError, print_sale
+
+    sale = db.get_or_404(Sale, sale_id)
+    try:
+        print_sale(sale)
+        flash(f"{sale.title} sent to the printer.", "success")
+    except PrinterError as e:
         flash(str(e), "error")
     return _to_bill(sale)
 
@@ -225,8 +321,11 @@ def bill_text(sale):
     if store.gstin:
         head.append(f"GSTIN: {store.gstin}")
     if sale.status == "cancelled":
-        head += ["", "*❌ THIS BILL IS CANCELLED*"]
-    head += ["", f"🧾 *Bill No: {sale.number}*", f"📅 {sale.created_at:%d-%m-%Y, %I:%M %p}"]
+        head += ["", f"*❌ THIS {'CREDIT NOTE' if sale.is_return else 'BILL'} IS CANCELLED*"]
+    number = f"Credit Note: {sale.doc_no}" if sale.is_return else f"Bill No: {sale.number}"
+    head += ["", f"🧾 *{number}*", f"📅 {sale.created_at:%d-%m-%Y, %I:%M %p}"]
+    if sale.is_return and sale.return_of:
+        head.append(f"Against bill {sale.return_of.number}")
     if sale.party:
         head.append(f"👤 {sale.customer_name}")
 
@@ -249,23 +348,32 @@ def bill_text(sale):
         return f"{label}: ₹{inr(value)}"
 
     totals = []
-    if D(sale.discount) or D(sale.round_off):
+    if sale.total_discount or D(sale.round_off):
         totals.append(line("Subtotal", sale.gross))
         if D(sale.discount):
             totals.append(f"Discount: -₹{inr(sale.discount)}")
+        if D(sale.promo_discount):
+            totals.append(f"Offer ({sale.promo_note}): -₹{inr(sale.promo_discount)}")
+        if D(sale.redeem_amount):
+            totals.append(f"Points used ({sale.points_redeemed}): -₹{inr(sale.redeem_amount)}")
         if D(sale.round_off):
             totals.append(f"Round off: {'+' if sale.round_off > 0 else '-'}₹{inr(abs(sale.round_off))}")
-    totals.append(f"*TOTAL: ₹{inr(sale.net)}*")
+    totals.append(f"*{'REFUND' if sale.is_return else 'TOTAL'}: ₹{inr(abs(D(sale.net)))}*")
     if sale.taxed and D(sale.tax):
         totals.append(f"_(incl. GST ₹{inr(sale.tax)})_")
-    if sale.payment_mode == "credit":
+    if sale.is_return:
+        totals.append("Adjusted in your account ✅" if sale.payment_mode == "credit"
+                      else f"Refunded by {sale.payment_mode.upper()} ✅")
+    elif sale.payment_mode == "credit":
         totals.append(f"Paid: ₹{inr(sale.paid)}")
     else:
         totals.append(f"Paid by {sale.payment_mode.upper()} ✅")
     if sale.due > 0:
         totals.append(f"*Balance due: ₹{inr(sale.due)}*")
-    if sale.savings > 0:
+    if sale.savings > 0 and not sale.is_return:
         totals += ["", f"🎉 *You saved ₹{inr(sale.savings)}!*"]
+    if sale.points_earned and sale.party:
+        totals.append(f"⭐ Points earned: {sale.points_earned} · Balance: {sale.party.points}")
 
     footer = ["", f"_{store.bill_footer}_"] if store.bill_footer else []
     return "\n".join(head + ["", "```", *table, "```", ""] + totals + footer)
@@ -285,9 +393,10 @@ def whatsapp(sale_id):
 def sales_list():
     start, end, args = date_range(default_from=date.today())
     query = Sale.query.filter(Sale.status != "draft", Sale.created_at >= start, Sale.created_at < end)
-    number = request.args.get("number", type=int)
+    number = request.args.get("number", "").strip().upper()
     if number:
-        query = Sale.query.filter_by(number=number)
+        query = Sale.query.filter_by(return_number=int(number[3:])) if number.startswith("CN-") and \
+            number[3:].isdigit() else Sale.query.filter_by(number=int(number)) if number.isdigit() else query
     return render_template(
         "sales/list.html",
         sales=query.order_by(Sale.id.desc()).all(),

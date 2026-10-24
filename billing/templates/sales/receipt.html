@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bill {{ sale.number }} · {{ store.store_name }}</title>
+<title>{{ sale.title }} · {{ store.store_name }}</title>
 <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 <style>
   .receipt { width: 80mm; max-width: 100%; margin: 0 auto; background: #fff; color: #000; padding: 4mm; font: 12px/1.35 ui-monospace, "Cascadia Mono", Consolas, monospace; }
@@ -25,23 +25,26 @@
   {% if store.phone %}<div class="c">Ph: {{ store.phone }}</div>{% endif %}
   {% if store.gstin %}<div class="c">GSTIN: {{ store.gstin }}</div>{% endif %}
   <hr>
-  <div class="c"><b>{{ 'TAX INVOICE' if sale.taxed and store.gstin else 'BILL OF SUPPLY' if store.gstin else 'CASH MEMO' }}</b>{% if sale.status == 'cancelled' %} — CANCELLED{% endif %}</div>
-  <table><tr><td>Bill: {{ sale.number }}</td><td class="r">{{ sale.created_at.strftime('%d-%m-%Y %I:%M %p') }}</td></tr>
+  <div class="c"><b>{{ 'CREDIT NOTE' if sale.is_return else 'TAX INVOICE' if sale.taxed and store.gstin else 'BILL OF SUPPLY' if store.gstin else 'CASH MEMO' }}</b>{% if sale.status == 'cancelled' %} — CANCELLED{% endif %}</div>
+  <table><tr><td>{{ 'CN' if sale.is_return else 'Bill' }}: {{ sale.doc_no }}</td><td class="r">{{ sale.created_at.strftime('%d-%m-%Y %I:%M %p') }}</td></tr>
+  {% if sale.is_return and sale.return_of %}<tr><td colspan="2">Against bill {{ sale.return_of.number }}</td></tr>{% endif %}
   <tr><td colspan="2">{{ sale.customer_name }}{% if sale.party and sale.party.phone %} · {{ sale.party.phone }}{% endif %}</td></tr></table>
   <hr>
   <table>
     <tr><th>Item</th><th class="r">Qty</th><th class="r">Rate</th><th class="r">Amt</th></tr>
     {% for item in sale.items %}
-    <tr><td colspan="4">{{ item.name }}</td></tr>
+    <tr><td colspan="4">{{ item.name }}{% if item.promo_note %}<br><small>Offer: {{ item.promo_note }} -{{ item.promo_amount|inr }}</small>{% endif %}</td></tr>
     <tr><td class="small">{% if item.mrp > item.rate %}MRP {{ item.mrp|inr }}{% endif %}</td><td class="r">{{ item.qty|qty }}</td><td class="r">{{ item.rate|inr }}</td><td class="r">{{ item.amount|inr }}</td></tr>
     {% endfor %}
   </table>
   <hr>
   <table>
     <tr><td>Items: {{ sale.items|length }} · Qty: {{ sale.total_qty|qty }}</td><td class="r">{{ sale.gross|inr }}</td></tr>
-    {% if sale.discount > 0 %}<tr><td>Discount</td><td class="r">-{{ sale.discount|inr }}</td></tr>{% endif %}
+    {% if sale.discount|float %}<tr><td>Discount</td><td class="r">-{{ sale.discount|inr }}</td></tr>{% endif %}
+    {% if sale.promo_discount|float %}<tr><td>Offer: {{ sale.promo_note }}</td><td class="r">-{{ sale.promo_discount|inr }}</td></tr>{% endif %}
+    {% if sale.redeem_amount|float %}<tr><td>Points used ({{ sale.points_redeemed }})</td><td class="r">-{{ sale.redeem_amount|inr }}</td></tr>{% endif %}
     {% if sale.round_off != 0 %}<tr><td>Round off</td><td class="r">{{ sale.round_off|inr }}</td></tr>{% endif %}
-    <tr class="big"><td>NET ₹</td><td class="r">{{ sale.net|inr }}</td></tr>
+    <tr class="big"><td>{{ 'REFUND ₹' if sale.is_return else 'NET ₹' }}</td><td class="r">{{ (-sale.net if sale.is_return else sale.net)|inr }}</td></tr>
     <tr><td>{{ sale.payment_mode|upper }}</td><td class="r">Paid {{ sale.paid|inr }}</td></tr>
     {% if sale.due > 0 %}<tr><td><b>Balance due</b></td><td class="r"><b>{{ sale.due|inr }}</b></td></tr>{% endif %}
   </table>
@@ -54,7 +57,8 @@
     {% endfor %}
   </table>
   {% endif %}
-  {% if sale.savings > 0 %}<hr><div class="c"><b>You saved ₹{{ sale.savings|inr }}!</b></div>{% endif %}
+  {% if sale.savings > 0 and not sale.is_return %}<hr><div class="c"><b>You saved ₹{{ sale.savings|inr }}!</b></div>{% endif %}
+  {% if sale.points_earned and sale.party %}<div class="c">Points earned: {{ sale.points_earned }} · Balance: {{ sale.party.points }}</div>{% endif %}
   {% if sale.due > 0 %}{% set qr = upi_qr(sale.due, 'Bill %s' % sale.number) %}{% if qr %}<hr><div class="c qr">{{ qr }}<div>Scan to pay ₹{{ sale.due|inr }}</div></div>{% endif %}{% endif %}
   <hr>
   {% if store.bill_footer %}<div class="c">{{ store.bill_footer }}</div>{% endif %}
@@ -64,10 +68,10 @@
 <div class="actions">
   <div class="grid cols-2">
     <button onclick="window.print()">🖨 Print again</button>
-    <a class="btn secondary" href="{{ url_for('sales.pos') }}" id="new-bill">+ New bill <span class="kbd">F2</span></a>
+    <a class="btn secondary" href="{{ url_for('sales.pos') }}" id="new-bill" data-key="F2">+ New bill <span class="kbd">F2</span></a>
   </div>
   <form method="get" action="{{ url_for('sales.whatsapp', sale_id=sale.id) }}" target="_blank" class="card" id="whatsapp" style="margin-top:1rem">
-    <label for="phone">Send bill on WhatsApp</label>
+    <label for="phone">Send {{ 'credit note' if sale.is_return else 'bill' }} on WhatsApp</label>
     <div class="row">
       <input id="phone" name="phone" class="field" inputmode="tel" placeholder="Customer mobile number" value="{{ sale.party.phone if sale.party and sale.party.phone else '' }}">
       <button class="btn whatsapp">Send</button>

@@ -6,32 +6,44 @@ A modern billing and inventory app for marts and grocery stores, built with Pyth
 ## Features
 
 **Billing (counter sales)**
-- Barcode scanning with USB/Bluetooth scanners (they just type + Enter) or the phone/laptop **camera**
-- Search by name when there is no barcode; `3*barcode` adds 3 at once; loose items by weight (1.250 kg)
-- MRP, sale rate, line discount %, bill discount, automatic round off, "You saved ₹…" on the bill
-- Cash (with change calculator), UPI (shows a **UPI QR code** for the exact amount), card, credit
-- Hold a bill and start another; returns with a negative quantity; cancel a saved bill (stock goes back)
-- **Print** an 80 mm thermal receipt (`F9` = save & print) or an **A4 GST tax invoice**
-- **Send the bill on WhatsApp** to the customer's number (opens WhatsApp with the bill typed out)
+- Barcode scanning with USB/Bluetooth scanners or the phone/laptop **camera**; live product search while typing
+- **Weighing-scale barcodes** (prefix + PLU + weight or price) for loose items
+- MRP, sale rate, line discount %, bill discount, automatic round off, "You saved ₹…"
+- **Batches & multiple MRP**: sells the batch expiring first; the cashier can pick another MRP on the line
+- **Offers** applied automatically: % off a product/category, buy X get Y free, bill-value offers, dates and happy hours
+- **Loyalty points**: earn per ₹100, redeem as a discount on the bill
+- **Wholesale customers** get wholesale rates
+- Cash (change calculator), UPI (QR code for the exact amount), card, credit; hold a bill and start another
+- **Returns** from a saved bill make a **credit note** (CN-1, CN-2…), refunded in cash/UPI/card or to the customer's account
+- Print an 80 mm receipt (browser, or **straight to a thermal printer** with cash drawer), an A4 GST invoice,
+  or **send on WhatsApp**
 
-**Purchases**: supplier bill entry by scanning, free quantity, discount, GST slab, new MRP/sale rate.
-Saving adds stock and updates cost and prices. An unknown barcode can be created as a product on the spot.
+**Cash register**: opening cash, cash in/out, expenses, end-of-day close per cashier (expected vs counted cash).
 
-**Products**: barcode, category, brand, HSN, unit, MRP, sale/purchase rate, GST slab, stock, low-stock alert.
-**Import** from Excel/CSV (SwilERP exports work: `NameToDisplay`, `Curr.Qty`, `SaleRate`, …) and **export** to Excel/CSV.
+**Purchases**: supplier bills with free qty, discount, GST, MRP/sale rate, **batch no. and expiry**; saving adds stock
+and updates costs. **Reorder list** from low stock and sales speed, **purchase orders** (print or WhatsApp to the
+supplier) that turn into purchases when goods arrive.
 
-**Stock**: physical count (shortage/surplus) and write-off of damaged/expired goods, with history.
+**Products**: barcode (or a generated in-store EAN-13), scale PLU, category, brand, HSN, MRP, sale/wholesale/purchase
+rate, GST slab, stock, low-stock alert. **Price labels** (A4 sheets or label roll). **Import/export** Excel/CSV
+(SwilERP exports work).
 
-**Customers & suppliers**: credit balances, receive/make payments, bill history.
+**Stock**: physical count (shortage/surplus) and write-off of damaged/expired goods, per batch, with history.
 
-**Reports** (date range, Excel/CSV export, print): dashboard, sales register, daily summary with cash/UPI/card
-split, product-wise sales and profit, purchase register, GST summary (CGST/SGST by slab), stock valuation,
-outstanding dues.
+**Customers & suppliers**: opening balances, credit balances, payments, loyalty points, **import from Excel**,
+**WhatsApp payment reminders**.
 
-**GST**: tax slab master (GST 2.0 defaults: 0, 5, 18, 40, plus 3 and 0.25; add your own), prices
-inclusive of GST, CGST + SGST split, and composition-scheme mode (Bill of Supply, no tax).
+**Reports** (date range, Excel/CSV, print): dashboard, sales register, daily summary, product-wise sales, net profit
+after expenses, expenses, category margin, fast/slow/dead stock, expiry, purchases, stock valuation, outstanding,
+GST summary and a **GSTR-1 / GSTR-3B workbook** for your CA.
 
-**Users**: login, admin + custom users with per-section access (e.g. a cashier who can only bill).
+**GST**: tax slab master (GST 2.0: 0, 5, 18, 40, plus 3 and 0.25; add your own), GST-inclusive prices, CGST + SGST,
+composition-scheme mode (Bill of Supply).
+
+**Users & control**: login, admin + custom users with per-section access, per-user discount limit, permissions to
+change rates or cancel bills, and an **audit log** of cancellations, returns, price/stock changes and more.
+
+**Data safety**: automatic backups, **export all data** to one Excel file, and **direct upload to Google Drive**.
 
 ### Keyboard shortcuts (billing screen)
 
@@ -55,15 +67,21 @@ All data is in `instance/billing.db`.
 
 ### Backups and Google Drive
 
-**Settings → Backup & Google Drive sync** (admin only):
+**Settings → Backup & Google Drive** (admin only):
 
-1. Install **Google Drive for desktop** on the shop PC (it shows up as a drive, e.g. `G:`).
-2. Set the backup folder to a folder inside it, e.g. `G:\My Drive\P MART Backups`.
-3. Choose how often (default every 6 hours) and how many copies to keep (default 30).
+- **Export all data**: one Excel file, a sheet per table (products, bills, purchases, customers, payments, …).
+- **Google Drive (direct upload)**: a one-time setup on that page (create a free Google OAuth client, about
+  10 minutes), then **Upload to Google Drive now** sends a database backup plus the Excel export to a
+  "<store> Backups" folder. Tick the box to also upload with every automatic backup.
+- **Automatic backups** to a folder on the PC every few hours (default 6, keeping 30). Pointing that folder at a
+  Google Drive for desktop folder (e.g. `G:\My Drive\P MART Backups`) also syncs them to Drive.
+- To restore: close the app, copy a backup into `instance`, rename it to `billing.db`, and start the app again.
 
-The app saves a safe copy of the database there while it runs, and Drive uploads it. You can also click
-**Back up now** or **Download backup**. To restore: close the app, copy a backup into `instance`, rename it to
-`billing.db`, and start the app again.
+### Printer and scale
+
+**Settings → Scale & printer**: thermal printers on the network (`IP:9100`) or on Windows (install `pywin32` once:
+`.venv\Scripts\pip install pywin32`), paper width, automatic printing and cash-drawer opening; weighing-scale
+barcode format (prefix, item-code length, weight or price). Set each loose product's **Scale PLU** to match the scale.
 
 Updating the app is safe: new versions add any new database columns automatically.
 

@@ -3,10 +3,10 @@
 {% block content %}
 <div class="page-head"><h1>Dashboard</h1><span class="muted">{{ store.store_name }}</span></div>
 <div class="grid cols-4">
-  <div class="card stat"><div class="label">Today's sales</div><div class="value">₹{{ today.net|inr }}</div><div class="small muted">{{ today.bills }} bills</div></div>
-  <div class="card stat"><div class="label">Today's profit</div><div class="value">₹{{ today.profit|inr }}</div><div class="small muted">Cash ₹{{ today.cash|inr }} · UPI ₹{{ today.upi|inr }}</div></div>
-  <div class="card stat"><div class="label">This month's sales</div><div class="value">₹{{ month.net|inr }}</div><div class="small muted">{{ month.bills }} bills · profit ₹{{ month.profit|inr }}</div></div>
-  <div class="card stat"><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div><div class="small muted">Credit given today ₹{{ today.due|inr }}</div></div>
+  <div class="card stat"><div class="label">Today's sales</div><div class="value">₹{{ today_sales.net|inr }}</div><div class="small muted">{{ today_sales.bills }} bills</div></div>
+  <div class="card stat"><div class="label">Today's profit</div><div class="value">₹{{ today_sales.profit|inr }}</div><div class="small muted">Cash ₹{{ today_sales.cash|inr }} · UPI ₹{{ today_sales.upi|inr }}</div></div>
+  <div class="card stat"><div class="label">This month's sales</div><div class="value">₹{{ month_sales.net|inr }}</div><div class="small muted">{{ month_sales.bills }} bills · profit ₹{{ month_sales.profit|inr }}</div></div>
+  <div class="card stat"><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div><div class="small muted">Expenses this month ₹{{ expenses_month|inr }}</div></div>
 </div>
 <div class="grid cols-2">
   <div class="card">
@@ -22,9 +22,17 @@
       {% else %}<p class="muted small">Nothing below its alert level. Set "Low-stock alert at" on products to use this.</p>{% endfor %}
       {% if low_count > low_stock|length %}<a class="small" href="{{ url_for('reports.stock', low=1) }}">See all {{ low_count }}</a>{% endif %}
     </div>
+    {% if expiring %}
+    <div class="card">
+      <h2>Expiring in 30 days</h2>
+      {% for b in expiring %}<div class="row spread small" style="padding:.2rem 0"><span>{{ b.product.name }} <span class="muted">{{ b.batch_no or '' }}</span></span>
+        <span class="badge {{ 'bad' if b.expiry < today else 'warn' }}">{{ b.expiry.strftime('%d %b') }} · {{ b.qty|qty }}</span></div>{% endfor %}
+      <a class="small" href="{{ url_for('reports.expiry') }}">Expiry report</a>
+    </div>
+    {% endif %}
     <div class="card">
       <h2>Recent bills</h2>
-      {% for s in recent %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('sales.bill', sale_id=s.id) }}">Bill {{ s.number }} · {{ s.customer_name }}</a><span>₹{{ s.net|inr }} · {{ s.created_at.strftime('%I:%M %p') }}</span></div>
+      {% for s in recent %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('sales.bill', sale_id=s.id) }}">{{ s.title }} · {{ s.customer_name }}</a><span>₹{{ s.net|inr }} · {{ s.created_at.strftime('%I:%M %p') }}</span></div>
       {% else %}<p class="muted small">No bills yet.</p>{% endfor %}
     </div>
   </div>

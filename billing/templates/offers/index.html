@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Offers & loyalty{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Offers &amp; loyalty</h1>
+  <div class="row">{% for key, label in kinds.items() %}<a class="btn {{ 'secondary' if not loop.first }}" href="{{ url_for('offers.edit', kind=key) }}">+ {{ label }}</a>{% endfor %}</div></div>
+<div class="card table-wrap">
+  <h2>Offers</h2>
+  <table>
+    <tr><th>Name</th><th>Offer</th><th>When</th><th>Status</th><th></th></tr>
+    {% for o in offers %}
+    <tr><td><a href="{{ url_for('offers.edit', offer_id=o.id) }}">{{ o.name }}</a></td><td>{{ o.summary }}</td>
+      <td class="small">{% if o.starts_on or o.ends_on %}{{ o.starts_on.strftime('%d %b') if o.starts_on else '…' }} – {{ o.ends_on.strftime('%d %b %Y') if o.ends_on else '…' }}{% else %}Always{% endif %}
+        {% if o.start_time and o.end_time %}<br>{{ o.start_time.strftime('%I:%M %p') }}–{{ o.end_time.strftime('%I:%M %p') }}{% endif %}</td>
+      <td>{% if o.id in running %}<span class="badge ok">running now</span>{% elif o.active %}<span class="badge warn">scheduled</span>{% else %}<span class="badge">off</span>{% endif %}</td>
+      <td class="right"><form method="post" action="{{ url_for('offers.toggle', offer_id=o.id) }}"><button class="secondary">{{ 'Turn off' if o.active else 'Turn on' }}</button></form></td></tr>
+    {% else %}
+    <tr><td colspan="5" class="empty">No offers yet. Offers apply automatically on bills while they run.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+<div class="grid cols-2" style="align-items:start">
+  <form method="post" action="{{ url_for('offers.loyalty') }}" class="card" id="loyalty">
+    <h2>Loyalty points</h2>
+    <div class="grid cols-3">
+      <div><label for="loyalty_rate">Points per ₹100</label><input id="loyalty_rate" name="loyalty_rate" inputmode="decimal" value="{{ store.loyalty_rate|qty }}"></div>
+      <div><label for="loyalty_value">1 point = ₹</label><input id="loyalty_value" name="loyalty_value" inputmode="decimal" value="{{ store.loyalty_value|qty }}"></div>
+      <div><label for="loyalty_min_redeem">Min points to use</label><input id="loyalty_min_redeem" name="loyalty_min_redeem" inputmode="numeric" value="{{ store.loyalty_min_redeem }}"></div>
+    </div>
+    <p class="small muted">Customers on a bill earn points on the bill amount and can use them as a discount on the billing screen. Set points per ₹100 to 0 to switch loyalty off.
+      Example: 1 point per ₹100, 1 point = ₹1 gives 1% back.</p>
+    <button>Save loyalty settings</button>
+  </form>
+  <div class="card">
+    <h2>Top point holders</h2>
+    {% for c, points in top %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('parties.detail', party_id=c.id) }}">{{ c.name }}</a><span>⭐ {{ points }}</span></div>
+    {% else %}<p class="muted small">No points earned yet.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Labels · {{ store.store_name }}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 9px/1.2 Arial, Helvetica, sans-serif; color: #000; background: #fff; }
+  .label { overflow: hidden; text-align: center; padding: 1mm 1.5mm; display: flex; flex-direction: column; justify-content: space-between; break-inside: avoid; }
+  .store { font-size: 7px; text-transform: uppercase; letter-spacing: .03em; }
+  .name { font-weight: 700; max-height: 2.4em; overflow: hidden; }
+  .prices { display: flex; justify-content: center; gap: 2mm; align-items: baseline; }
+  .mrp { text-decoration: line-through; font-size: 8px; }
+  .price { font-weight: 800; font-size: 11px; }
+  .code svg { display: block; margin: 0 auto; }
+  .sheet { display: grid; }
+  /* A4, 65 labels: 5 x 13 of 38.1 x 21.2 mm */
+  .a4-65 { width: 210mm; padding: 10.7mm 4.7mm; grid-template-columns: repeat(5, 38.1mm); grid-auto-rows: 21.2mm; column-gap: 2.5mm; }
+  .a4-65 .store { display: none; }
+  .a4-65 .name { white-space: nowrap; text-overflow: ellipsis; max-height: 1.2em; font-size: 8px; }
+  /* A4, 24 labels: 3 x 8 of 64 x 34 mm */
+  .a4-24 { width: 210mm; padding: 13mm 7mm; grid-template-columns: repeat(3, 64mm); grid-auto-rows: 34mm; column-gap: 2mm; }
+  .a4-24 .name { font-size: 11px; } .a4-24 .price { font-size: 14px; }
+  /* Roll printer: one 50 x 25 mm label per page */
+  .roll-50x25 .label { width: 50mm; height: 25mm; page-break-after: always; }
+  @page { margin: 0; {% if layout == 'roll-50x25' %}size: 50mm 25mm;{% else %}size: A4;{% endif %} }
+  @media screen { body { background: #e5e7eb; padding: 12px; } .sheet { background: #fff; margin: 0 auto; } .bar { margin-bottom: 12px; font: 14px system-ui; } }
+  @media print { .bar { display: none; } }
+</style>
+</head>
+<body>
+<div class="bar"><button onclick="window.print()">🖨 Print {{ labels|length }} labels</button> Use 100% scale / "Actual size", no margins.</div>
+<div class="sheet {{ layout }}">
+  {% for p, svg in labels %}
+  <div class="label">
+    <div class="store">{{ store.store_name }}</div>
+    <div class="name">{{ p.name }}</div>
+    {% if show_price %}<div class="prices">{% if p.mrp > p.sale_rate %}<span class="mrp">MRP ₹{{ p.mrp|inr }}</span>{% endif %}<span class="price">₹{{ p.sale_rate|inr }}</span></div>{% endif %}
+    <div class="code">{{ svg }}</div>
+  </div>
+  {% else %}
+  <p>No labels to print. Products need a barcode.</p>
+  {% endfor %}
+</div>
+<script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+</body>
+</html>

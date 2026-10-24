@@ -5,11 +5,16 @@
 {% block content %}
 <div class="page-head">
   <div><h1>{{ party.name }}</h1><div class="muted">{{ party.kind|capitalize }}{% if party.phone %} · {{ party.phone }}{% endif %}{% if party.gstin %} · GSTIN {{ party.gstin }}{% endif %}</div></div>
-  <a class="btn secondary" href="{{ url_for('parties.edit', party_id=party.id) }}">Edit</a>
+  <div class="row">
+    {% if customer and bal > 0 and party.phone %}<a class="btn whatsapp" href="{{ url_for('parties.remind', party_id=party.id) }}" target="_blank">WhatsApp reminder</a>{% endif %}
+    <a class="btn secondary" href="{{ url_for('parties.edit', party_id=party.id) }}">Edit</a></div>
 </div>
 <div class="grid cols-2">
   <div class="card stat"><div class="label">{{ 'Customer owes you' if customer else 'You owe this supplier' }}</div>
-    <div class="value" style="color:{{ 'var(--bad)' if bal > 0 else 'var(--ok)' }}">₹{{ bal|inr }}</div></div>
+    <div class="value" style="color:{{ 'var(--bad)' if bal > 0 else 'var(--ok)' }}">₹{{ bal|inr }}</div>
+    {% if party.opening_balance|float %}<div class="small muted">includes opening balance ₹{{ party.opening_balance|inr }}</div>{% endif %}
+    {% if customer and store.loyalty_rate > 0 %}<div class="small">⭐ {{ party.points }} loyalty points</div>{% endif %}
+    {% if party.price_list == 'wholesale' %}<div><span class="badge warn">Wholesale customer</span></div>{% endif %}</div>
   <form method="post" action="{{ url_for('parties.payment', party_id=party.id) }}" class="card">
     <h2>{{ 'Receive payment' if customer else 'Record payment' }}</h2>
     <div class="row">
@@ -25,7 +30,7 @@
     <table>
       <tr><th>No.</th><th>Date</th><th>Mode</th><th class="num">Net</th><th class="num">Due</th></tr>
       {% for d in documents %}
-      <tr><td><a href="{{ url_for('sales.bill', sale_id=d.id) if customer else url_for('purchases.bill', purchase_id=d.id) }}">{{ d.number }}</a></td>
+      <tr><td><a href="{{ url_for('sales.bill', sale_id=d.id) if customer else url_for('purchases.bill', purchase_id=d.id) }}">{{ d.doc_no if customer else d.number }}</a></td>
         <td>{{ d.created_at.strftime('%d-%m-%Y') }}</td><td>{{ d.payment_mode|upper }}</td><td class="num">{{ d.net|inr }}</td><td class="num">{{ d.due|inr if d.due > 0 else '' }}</td></tr>
       {% else %}<tr><td colspan="5" class="empty">None yet.</td></tr>{% endfor %}
     </table>
