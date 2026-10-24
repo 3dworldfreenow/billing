@@ -61,6 +61,7 @@ def create_app(config=None):
         ),
         MAX_CONTENT_LENGTH=20 * 1024 * 1024,  # product import files
         PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+        SESSION_COOKIE_SAMESITE="Lax",  # other websites can't submit forms with your login
     )
     if config:
         app.config.update(config)
@@ -70,9 +71,10 @@ def create_app(config=None):
         app.config["SECRET_KEY"] = _instance_secret(app.instance_path)
     db.init_app(app)
 
-    from .views import api, auth, cash, offers, parties, products, purchases, reports, sales, settings, stock
+    from .views import (api, auth, cash, offers, orders, parties, products, purchases, reports, sales, settings,
+                        shop, stock)
 
-    for module in (api, auth, cash, offers, sales, purchases, products, parties, stock, reports, settings):
+    for module in (api, auth, cash, offers, orders, shop, sales, purchases, products, parties, stock, reports, settings):
         app.register_blueprint(module.bp)
     app.before_request(auth.load_user)
 

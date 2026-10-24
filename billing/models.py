@@ -68,6 +68,10 @@ class Setting(db.Model):
     drive_auto = db.Column(db.Boolean, nullable=False, default=False)
     last_drive_at = db.Column(db.DateTime)
     last_drive_note = db.Column(db.String(300))
+    # Online shop for approved customers (off = only the admin can preview it).
+    shop_enabled = db.Column(db.Boolean, nullable=False, default=False)
+    shop_note = db.Column(db.String(300))  # shown on the shop, e.g. delivery timings
+    shop_min_order = db.Column(db.Numeric(12, 2), nullable=False, default=0)
 
     @classmethod
     def get(cls):
@@ -87,6 +91,7 @@ PERMISSIONS = {
     "purchases": "Purchases & orders",
     "products": "Products, labels & import/export",
     "parties": "Customers & suppliers",
+    "orders": "Online orders",
     "stock": "Stock adjustment",
     "offers": "Offers & loyalty",
     "reports": "Reports",
@@ -165,6 +170,8 @@ class Product(db.Model):
     gst_rate = db.Column(db.Numeric(5, 2), nullable=False, default=0)
     stock = db.Column(db.Numeric(12, 3), nullable=False, default=0)  # = sum of batch qty when batched
     min_stock = db.Column(db.Numeric(12, 3), nullable=False, default=0)
+    image = db.Column(db.String(120))  # file name under instance/uploads/products
+    online = db.Column(db.Boolean, nullable=False, default=True)  # listed in the online shop
 
     batches = db.relationship("Batch", back_populates="product", order_by="Batch.id")
 
@@ -221,6 +228,9 @@ class Party(db.Model):
     gstin = db.Column(db.String(20))
     price_list = db.Column(db.String(10), nullable=False, default="retail")  # retail | wholesale
     opening_balance = db.Column(db.Numeric(12, 2), nullable=False, default=0)  # owed when you started
+    # Online shop login (mobile number + password), for customers the admin approves.
+    shop_access = db.Column(db.Boolean, nullable=False, default=False)
+    shop_password_hash = db.Column(db.String(255))
     payments = db.relationship("PartyPayment", back_populates="party", order_by="PartyPayment.id.desc()")
 
     @property
@@ -239,6 +249,12 @@ class Party(db.Model):
             PartyPayment.party_id == self.id
         ).scalar()
         return money(D(self.opening_balance) + D(billed) - D(settled))
+
+    def set_shop_password(self, password):
+        self.shop_password_hash = generate_password_hash(password)
+
+    def check_shop_password(self, password):
+        return bool(self.shop_password_hash) and check_password_hash(self.shop_password_hash, password)
 
     @property
     def points(self):
@@ -678,3 +694,65 @@ class DayClose(db.Model):
     @property
     def difference(self):
         return money(D(self.counted) - D(self.expected))
+
+
+ORDER_STEPS = {"new": "New", "confirmed": "Confirmed", "packed": "Packed", "out": "Out for delivery",
+               "delivered": "Delivered"}
+
+
+class Order(db.Model):
+    """An order request from the online shop. While status is "cart" it is the customer's cart."""
+
+    id = db.Column(db.Integer, primary_key=True)
+    number = db.Column(db.Integer, unique=True)  # given when placed
+    party_id = db.Column(db.Integer, db.ForeignKey("party.id"), nullable=False, index=True)
+    status = db.Column(db.String(12), nullable=False, default="cart", index=True)  # cart, ORDER_STEPS, cancelled
+    created_at = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    placed_at = db.Column(db.DateTime, index=True)
+    updated_at = db.Column(db.DateTime)
+    address = db.Column(db.Text)
+    note = db.Column(db.String(300))  # from the customer
+    staff_note = db.Column(db.String(300))  # e.g. reason for cancelling, shown to the customer
+    sale_id = db.Column(db.Integer, db.ForeignKey("sale.id"))  # the bill made for it
+
+    party = db.relationship("Party")
+    sale = db.relationship("Sale")
+    items = db.relationship("OrderItem", back_populates="order", cascade="all, delete-orphan",
+                            order_by="OrderItem.id")
+
+    @classmethod
+    def next_number(cls):
+        return (db.session.query(func.max(cls.number)).scalar() or 0) + 1
+
+    @property
+    def total(self):
+        return money(sum((D(i.qty) * D(i.rate) for i in self.items), Decimal(0)))
+
+    @property
+    def status_label(self):
+        return "Cancelled" if self.status == "cancelled" else ORDER_STEPS.get(self.status, "Cart")
+
+    def add(self, product, qty, rate):
+        for item in self.items:
+            if item.product_id == product.id:
+                item.qty = D(item.qty) + D(qty)
+                return item
+        item = OrderItem(product=product, name=product.name, qty=qty, rate=rate)
+        self.items.append(item)
+        return item
+
+
+class OrderItem(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey("order.id"), nullable=False, index=True)
+    product_id = db.Column(db.Integer, db.ForeignKey("product.id"), nullable=False)
+    name = db.Column(db.String(160), nullable=False)
+    qty = db.Column(db.Numeric(12, 3), nullable=False, default=1)
+    rate = db.Column(db.Numeric(12, 2), nullable=False, default=0)  # price shown when ordered
+
+    order = db.relationship("Order", back_populates="items")
+    product = db.relationship("Product")
+
+    @property
+    def amount(self):
+        return money(D(self.qty) * D(self.rate))

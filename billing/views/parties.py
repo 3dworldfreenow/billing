@@ -84,6 +84,30 @@ def payment(party_id):
     return redirect(url_for("parties.detail", party_id=party.id))
 
 
+@bp.route("/parties/<int:party_id>/shop", methods=["POST"])
+def shop_access(party_id):
+    """Approve a customer for the online shop (login = their mobile number) and set their password."""
+    party = db.get_or_404(Party, party_id)
+    password = request.form.get("password", "")
+    allow = request.form.get("shop_access") == "1"
+    if party.kind != "customer":
+        flash("Only customers can use the online shop.", "error")
+    elif allow and not party.phone:
+        flash("Add the customer's mobile number first: it is their login.", "error")
+    elif allow and not party.shop_password_hash and len(password) < 6:
+        flash("Set a password of at least 6 characters.", "error")
+    elif password and len(password) < 6:
+        flash("Password must be at least 6 characters.", "error")
+    else:
+        party.shop_access = allow
+        if password:
+            party.set_shop_password(password)
+        log("shop access", f"{party.name}: {'allowed' if allow else 'blocked'}{', new password' if password else ''}")
+        db.session.commit()
+        flash(f"{party.name} can {'now' if allow else 'no longer'} order online.", "success")
+    return redirect(url_for("parties.detail", party_id=party.id))
+
+
 def reminder_text(party):
     store = Setting.get()
     lines = [f"Namaste {party.name},", "",

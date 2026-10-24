@@ -23,7 +23,7 @@
   <table>
     <tr><th>Name</th><th>Barcode</th><th>Category</th><th>Brand</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Cost</th><th class="num">GST</th><th class="num">Stock</th></tr>
     {% for p in products %}
-    <tr><td><a href="{{ url_for('products.edit', product_id=p.id) }}">{{ p.name }}</a></td><td>{% if p.barcode %}<code>{{ p.barcode }}</code>{% else %}<span class="muted small">—</span>{% endif %}</td>
+    <tr><td><div class="row" style="align-items:center;flex-wrap:nowrap">{% if p.image %}<img src="{{ url_for('shop.media', name=p.image) }}" alt="" class="thumb" loading="lazy">{% else %}<span class="thumb empty-thumb"></span>{% endif %}<a href="{{ url_for('products.edit', product_id=p.id) }}">{{ p.name }}</a></div></td><td>{% if p.barcode %}<code>{{ p.barcode }}</code>{% else %}<span class="muted small">—</span>{% endif %}</td>
       <td>{{ p.category or '' }}</td><td>{{ p.brand or '' }}</td><td class="num">{{ p.mrp|inr }}</td><td class="num">{{ p.sale_rate|inr }}</td>
       <td class="num">{{ p.purchase_rate|inr }}</td><td class="num">{{ p.gst_rate|qty }}%</td>
       <td class="num">{% if p.min_stock > 0 and p.stock <= p.min_stock %}<span class="badge bad">{{ p.stock|qty }}</span>{% else %}{{ p.stock|qty }}{% endif %} <span class="muted small">{{ p.unit }}</span></td></tr>

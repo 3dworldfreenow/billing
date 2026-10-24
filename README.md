@@ -43,6 +43,14 @@ composition-scheme mode (Bill of Supply).
 **Users & control**: login, admin + custom users with per-section access, per-user discount limit, permissions to
 change rates or cancel bills, and an **audit log** of cancellations, returns, price/stock changes and more.
 
+**Online shop (approved customers only)**: switch it on in Settings → Online shop, then approve customers on their
+page (login = their mobile number + a password you set). They browse products with **photos** at `/shop`, fill a
+cart and place an order with their address. Orders appear under **Online orders** (red count in the menu): call or
+WhatsApp the customer, **Make bill** (stock changes when the bill is saved), then mark packed, out for delivery,
+delivered; the customer sees each step. While the shop is closed (e.g. on the offline counter PC) only the admin can
+preview it. Product photos are shrunk automatically and stored in `instance/uploads` (copy that folder along with
+your backups).
+
 **Data safety**: automatic backups, **export all data** to one Excel file, and **direct upload to Google Drive**.
 
 ### Keyboard shortcuts (billing screen)

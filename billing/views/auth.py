@@ -29,7 +29,11 @@ def load_user():
         return None
     user_id = session.get("user_id")
     g.user = db.session.get(User, user_id) if user_id else None
-    if g.user is None or not g.user.active:
+    if g.user is not None and not g.user.active:
+        g.user = None
+    if request.blueprint == "shop":
+        return None  # customers have their own login; staff are only looked up (admin preview)
+    if g.user is None:
         if User.query.first() is None:
             return redirect(url_for("auth.setup"))
         return redirect(url_for("auth.login", next=request.full_path if request.method == "GET" else None))

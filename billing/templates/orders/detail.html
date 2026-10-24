@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% block title %}Order {{ order.number }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Order #{{ order.number }} <span class="badge {{ 'bad' if order.status in ('new', 'cancelled') else 'ok' if order.status == 'delivered' else 'warn' }}">{{ order.status_label }}</span></h1>
+    <div class="muted small">Placed {{ order.placed_at.strftime('%d %b %Y, %I:%M %p') }}</div></div>
+  <a class="btn secondary" href="{{ url_for('orders.index') }}">All orders</a>
+</div>
+<div class="grid cols-2" style="align-items:start">
+  <div>
+    <div class="card">
+      <h2>{{ order.party.name }}</h2>
+      <div class="row" style="align-items:center">
+        <a class="btn" href="tel:{{ order.party.phone }}">{{ icon('user') }} Call {{ order.party.phone }}</a>
+        <a class="btn whatsapp" href="{{ whatsapp }}" target="_blank">{{ icon('chat') }} WhatsApp</a>
+      </div>
+      <p><span class="muted small">Deliver to</span><br>{{ order.address }}</p>
+      {% if order.note %}<p><span class="muted small">Customer's note</span><br>{{ order.note }}</p>{% endif %}
+    </div>
+    <div class="card table-wrap">
+      <table>
+        <tr><th>Item</th><th class="num">Stock</th><th class="num">Qty</th><th class="num">Rate</th><th class="num">Amount</th></tr>
+        {% for item in order.items %}
+        <tr><td>{{ item.name }}</td><td class="num {{ 'text-red' if item.product.stock < item.qty }}">{{ item.product.stock|qty }}</td>
+          <td class="num">{{ item.qty|qty }}</td><td class="num">{{ item.rate|inr }}</td><td class="num">{{ item.amount|inr }}</td></tr>
+        {% endfor %}
+        <tr class="total"><td colspan="4">Total (prices when ordered)</td><td class="num">₹{{ order.total|inr }}</td></tr>
+      </table>
+    </div>
+  </div>
+  <div>
+    <div class="card">
+      <h2>Next step</h2>
+      {% if order.status != 'cancelled' %}
+      {% set keys = steps.keys()|list %}{% set at = keys.index(order.status) %}
+      <ol class="steps">{% for key, label in steps.items() %}<li class="{{ 'done' if loop.index0 <= at }}">{{ label }}</li>{% endfor %}</ol>
+      <div class="row" style="margin-top:12px">
+        {% if not order.sale or order.sale.status == 'cancelled' %}
+          <form method="post" action="{{ url_for('orders.make_bill', order_id=order.id) }}"><button class="success">{{ icon('billing') }} Make bill</button></form>
+        {% else %}<a class="btn secondary" href="{{ url_for('sales.bill', sale_id=order.sale_id) }}">{{ icon('billing') }} {{ order.sale.title if order.sale.number else 'Open draft bill' }}</a>{% endif %}
+        {% if at + 1 < keys|length %}{% set next_key = keys[at + 1] %}
+          <form method="post" action="{{ url_for('orders.set_status', order_id=order.id) }}"><input type="hidden" name="status" value="{{ next_key }}"><button>Mark {{ steps[next_key]|lower }}</button></form>
+        {% endif %}
+      </div>
+      {% endif %}
+      <form method="post" action="{{ url_for('orders.set_status', order_id=order.id) }}" class="row" style="margin-top:14px">
+        <div class="field"><label for="staff_note">Note for the customer</label><input id="staff_note" name="staff_note" value="{{ order.staff_note or '' }}" placeholder="e.g. Atta out of stock, sending tomorrow"></div>
+        <div><label for="status">Status</label><select id="status" name="status">{% for key, label in steps.items() %}<option value="{{ key }}" {{ 'selected' if key == order.status }}>{{ label }}</option>{% endfor %}<option value="cancelled" {{ 'selected' if order.status == 'cancelled' }}>Cancelled</option></select></div>
+        <button class="secondary">Update</button>
+      </form>
+      <p class="small muted">The customer sees the status and your note in their shop. Stock changes only when the bill is saved.</p>
+    </div>
+  </div>
+</div>
+{% endblock %}

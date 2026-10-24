@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Online orders{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Online orders</h1>
+  <div class="row"><a class="btn secondary" href="{{ url_for('shop.catalog') }}" target="_blank">{{ icon('cart') }} View shop</a>
+    {% if not store.shop_enabled %}<a class="btn" href="{{ url_for('settings.index', section='shop') }}">Open the shop</a>{% endif %}</div></div>
+{% if not store.shop_enabled %}<div class="flash error">The online shop is closed: customers can't log in. Open it in Settings → Online shop.</div>{% endif %}
+<nav class="tabs">
+  <a href="{{ url_for('orders.index') }}" class="{{ 'active' if show == 'active' }}">To do <span class="badge {{ 'bad' if counts.get('new') }}">{{ active_count }}</span></a>
+  {% for key, label in steps.items() %}<a href="{{ url_for('orders.index', show=key) }}" class="{{ 'active' if show == key }}">{{ label }} <span class="badge">{{ counts.get(key, 0) }}</span></a>{% endfor %}
+  <a href="{{ url_for('orders.index', show='cancelled') }}" class="{{ 'active' if show == 'cancelled' }}">Cancelled <span class="badge">{{ counts.get('cancelled', 0) }}</span></a>
+</nav>
+<div class="card table-wrap">
+  <table>
+    <tr><th>Order</th><th>Placed</th><th>Customer</th><th>Phone</th><th class="num">Items</th><th class="num">Total</th><th>Status</th><th>Bill</th></tr>
+    {% for o in orders %}
+    <tr><td><a href="{{ url_for('orders.detail', order_id=o.id) }}"><b>#{{ o.number }}</b></a></td>
+      <td>{{ o.placed_at.strftime('%d %b, %I:%M %p') }}</td><td>{{ o.party.name }}</td>
+      <td><a href="tel:{{ o.party.phone }}">{{ o.party.phone }}</a></td><td class="num">{{ o.items|length }}</td><td class="num">₹{{ o.total|inr }}</td>
+      <td><span class="badge {{ 'bad' if o.status == 'new' else 'ok' if o.status == 'delivered' else '' if o.status == 'cancelled' else 'warn' }}">{{ o.status_label }}</span></td>
+      <td>{% if o.sale %}<a href="{{ url_for('sales.bill', sale_id=o.sale_id) }}">{{ o.sale.title if o.sale.number else 'draft' }}</a>{% endif %}</td></tr>
+    {% else %}
+    <tr><td colspan="8" class="empty">No orders here.</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endblock %}

@@ -1,0 +1,11 @@
+{% extends "shop/base.html" %}
+{% block title %}My orders{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:12px">My orders</h1>
+{% for o in orders %}
+<a class="card order-row" href="{{ url_for('shop.order', order_id=o.id) }}">
+  <div><b>Order {{ o.number }}</b><div class="small muted">{{ o.placed_at.strftime('%d %b %Y, %I:%M %p') }} · {{ o.items|length }} item{{ 's' if o.items|length != 1 }}</div></div>
+  <div class="right"><b>₹{{ o.total|inr }}</b><div><span class="badge {{ 'bad' if o.status == 'cancelled' else 'ok' if o.status == 'delivered' else 'warn' }}">{{ o.status_label }}</span></div></div>
+</a>
+{% else %}<div class="card empty">No orders yet. <a href="{{ url_for('shop.catalog') }}">Start shopping</a></div>{% endfor %}
+{% endblock %}

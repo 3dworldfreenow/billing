@@ -1,0 +1,22 @@
+{% extends "shop/base.html" %}
+{% block title %}Order {{ order.number }}{% endblock %}
+{% block content %}
+<div class="row spread" style="align-items:center;margin-bottom:12px"><h1>Order {{ order.number }}</h1><a href="{{ url_for('shop.orders') }}">All orders</a></div>
+<div class="card">
+  {% if order.status == 'cancelled' %}<div class="flash error" style="margin:0">Cancelled. {{ order.staff_note or '' }}</div>
+  {% else %}
+  {% set keys = steps.keys()|list %}{% set at = keys.index(order.status) %}
+  <ol class="steps">{% for key, label in steps.items() %}<li class="{{ 'done' if loop.index0 <= at }}">{{ label }}</li>{% endfor %}</ol>
+  {% if order.staff_note %}<p class="small">Note from the shop: {{ order.staff_note }}</p>{% endif %}
+  {% endif %}
+</div>
+<div class="card">
+  {% for item in order.items %}<div class="row spread" style="padding:4px 0"><span>{{ item.name }} <span class="muted">× {{ item.qty|qty }}</span></span><span>₹{{ item.amount|inr }}</span></div>{% endfor %}
+  <div class="row spread" style="border-top:1px solid var(--line);margin-top:6px;padding-top:8px;font-weight:700"><span>Total</span><span>₹{{ order.total|inr }}</span></div>
+  <p class="small muted">Deliver to: {{ order.address }}{% if order.note %} · Note: {{ order.note }}{% endif %}</p>
+  {% if order.status == 'new' %}
+  <form method="post" onsubmit="return confirm('Cancel this order?')"><button class="danger" name="action" value="cancel">Cancel order</button></form>
+  {% endif %}
+</div>
+{% if store.phone %}<p class="small muted">Questions? Call <a href="tel:{{ store.phone }}">{{ store.phone }}</a></p>{% endif %}
+{% endblock %}

@@ -1,0 +1,35 @@
+{% extends "shop/base.html" %}
+{% block title %}Cart{% endblock %}
+{% block content %}
+<h1 style="margin-bottom:12px">Your cart</h1>
+{% if not cart or not cart.items %}
+<div class="card empty">Your cart is empty. <a href="{{ url_for('shop.catalog') }}">Browse products</a></div>
+{% else %}
+<form method="post">
+  <div class="card">
+    {% for item in cart.items %}
+    <div class="cart-line">
+      <div class="pic sm">{% if item.product.image %}<img src="{{ url_for('shop.media', name=item.product.image) }}" alt="">{% else %}<span>{{ icon('package', 22) }}</span>{% endif %}</div>
+      <div class="cart-info">
+        <div class="pname">{{ item.name }}</div><div class="small muted">₹{{ item.rate|inr }} / {{ item.product.unit }}</div>
+        <div class="cart-qty">
+          <input name="qty_{{ item.id }}" type="number" min="0" step="any" value="{{ item.qty|qty }}" aria-label="Quantity of {{ item.name }}">
+          <b>₹{{ item.amount|inr }}</b>
+          <button class="link" name="remove" value="{{ item.id }}" title="Remove" aria-label="Remove {{ item.name }}">{{ icon('x') }}</button>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+    <div class="row spread" style="margin-top:10px;align-items:center"><button class="secondary" name="action" value="update">Update cart</button>
+      <div style="font-size:18px;font-weight:700">Total ₹{{ cart.total|inr }}</div></div>
+    <p class="small muted" style="margin-bottom:0">The shop confirms prices and availability when they call you. Pay on delivery.</p>
+  </div>
+  <div class="card">
+    <label for="address">Delivery address</label><textarea id="address" name="address" rows="2" required>{{ cart.address or '' }}</textarea>
+    <label for="note">Note for the shop (optional)</label><input id="note" name="note" value="{{ cart.note or '' }}" placeholder="e.g. deliver after 6 pm">
+    {% if store.shop_min_order > 0 %}<p class="small muted">Minimum order ₹{{ store.shop_min_order|inr }}.</p>{% endif %}
+    <button class="success big" name="action" value="place" style="width:100%;margin-top:12px" {{ 'disabled' if preview }}>{{ icon('check') }} Place order</button>
+  </div>
+</form>
+{% endif %}
+{% endblock %}

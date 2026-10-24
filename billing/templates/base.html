@@ -17,12 +17,13 @@
     <nav>
       {% macro item(endpoint, label, name, active) %}<a href="{{ url_for(endpoint) }}" class="{{ 'active' if active }}">{{ icon(name) }}{{ label }}</a>{% endmacro %}
       {% set can = current_user.can %}
-      {% if can('sales') or can('cash') %}<div class="section">Sell</div>{% endif %}
+      {% if can('sales') or can('cash') or can('orders') %}<div class="section">Sell</div>{% endif %}
       {% if can('sales') %}
         {{ item('sales.pos', 'Billing', 'billing', ep.startswith('sales.') and ep not in ('sales.sales_list',)) }}
         {{ item('sales.sales_list', 'Bills & returns', 'bills', ep == 'sales.sales_list') }}
       {% endif %}
       {% if can('cash') %}{{ item('cash.index', 'Cash register', 'wallet', ep.startswith('cash.')) }}{% endif %}
+      {% if can('orders') %}<a href="{{ url_for('orders.index') }}" class="{{ 'active' if ep.startswith('orders.') }}">{{ icon('truck') }}Online orders{% if new_orders %}<b class="nav-count">{{ new_orders }}</b>{% endif %}</a>{% endif %}
       {% if can('purchases') %}
         <div class="section">Buy</div>
         {{ item('purchases.index', 'Purchases', 'package', ep.startswith('purchases.') and ep != 'purchases.reorder') }}

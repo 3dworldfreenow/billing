@@ -1,0 +1,42 @@
+{% extends "shop/base.html" %}
+{% block title %}Products{% endblock %}
+{% block content %}
+{% if categories %}
+<div class="chips" role="navigation" aria-label="Categories">
+  <a href="{{ url_for('shop.catalog', q=q or None) }}" class="{{ 'on' if not category }}">All</a>
+  {% for c in categories %}<a href="{{ url_for('shop.catalog', category=c, q=q or None) }}" class="{{ 'on' if c == category }}">{{ c|title }}</a>{% endfor %}
+</div>
+{% endif %}
+<p class="muted small">{{ count }} product{{ 's' if count != 1 }}{% if q %} for “{{ q }}”{% endif %}</p>
+<div class="products">
+  {% for p in products %}
+  {% set rate = price(p) %}
+  <div class="product">
+    <div class="pic">{% if p.image %}<img src="{{ url_for('shop.media', name=p.image) }}" alt="{{ p.name }}" loading="lazy">{% else %}<span>{{ icon('package', 40) }}</span>{% endif %}
+      {% if p.mrp > rate %}<span class="off">{{ ((p.mrp - rate) * 100 / p.mrp)|round|int }}% off</span>{% endif %}</div>
+    <div class="info">
+      <div class="pname">{{ p.name }}</div>
+      <div class="pprice"><b>₹{{ rate|inr }}</b>{% if p.mrp > rate %} <s>₹{{ p.mrp|inr }}</s>{% endif %}<span class="muted small"> / {{ p.unit }}</span></div>
+      {% if p.stock <= 0 %}<span class="badge">Out of stock</span>
+      {% else %}
+      <form method="post" action="{{ url_for('shop.add') }}" class="addrow">
+        <input type="hidden" name="product_id" value="{{ p.id }}"><input type="hidden" name="next" value="{{ request.full_path }}">
+        <input name="qty" type="number" min="{{ '0.25' if p.unit in ('kg', 'ltr') else '1' }}" step="{{ '0.25' if p.unit in ('kg', 'ltr') else '1' }}" value="1" aria-label="Quantity of {{ p.name }}">
+        <button {{ 'disabled title="Preview"' if preview }}>{{ icon('plus', 14) }} Add</button>
+      </form>
+      {% if in_cart.get(p.id) %}<div class="small text-green">{{ icon('check', 13) }} {{ in_cart[p.id]|qty }} in cart</div>{% endif %}
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <div class="card empty" style="grid-column:1/-1">No products found.</div>
+  {% endfor %}
+</div>
+{% if pages > 1 %}
+<div class="pager">
+  {% if page > 1 %}<a class="btn secondary" href="{{ url_for('shop.catalog', q=q or None, category=category or None, page=page - 1) }}">{{ icon('left') }} Prev</a>{% endif %}
+  <span class="muted">Page {{ page }} of {{ pages }}</span>
+  {% if page < pages %}<a class="btn secondary" href="{{ url_for('shop.catalog', q=q or None, category=category or None, page=page + 1) }}">Next {{ icon('right') }}</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

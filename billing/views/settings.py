@@ -7,11 +7,11 @@ from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, 
 from sqlalchemy.exc import IntegrityError
 
 from ..backup import BackupError, default_folder, run_backup, write_backup
-from ..models import AuditLog, Setting, TaxSlab, User, db
+from ..models import AuditLog, Party, Setting, TaxSlab, User, db
 from ..services import log, parse_decimal
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
-SECTIONS = {"store": "Store", "gst": "GST slabs", "devices": "Scale & printer", "backup": "Backup & Google Drive",
+SECTIONS = {"store": "Store", "gst": "GST slabs", "shop": "Online shop", "devices": "Scale & printer", "backup": "Backup & Google Drive",
             "audit": "Audit log"}
 ADMIN_SECTIONS = {"backup", "audit"}  # backups hold every bill and the users' password hashes
 
@@ -35,6 +35,9 @@ def index(section="store"):
     context = {}
     if section == "gst":
         context["slabs"] = TaxSlab.query.order_by(TaxSlab.rate).all()
+    elif section == "shop":
+        context["shop_url"] = url_for("shop.login", _external=True)
+        context["approved"] = Party.query.filter_by(kind="customer", shop_access=True).order_by(Party.name).all()
     elif section == "backup":
         context["default_backup_dir"] = default_folder(current_app)
         context["redirect_uri"] = url_for("settings.drive_callback", _external=True)
@@ -64,6 +67,23 @@ def save_store():
     db.session.commit()
     flash("Store settings saved.", "success")
     return _back("store")
+
+
+@bp.route("/shop", methods=["POST"])
+def save_shop():
+    store = Setting.get()
+    minimum = parse_decimal(request.form.get("shop_min_order", ""), 0)
+    if minimum is None or minimum < 0:
+        flash("Minimum order must be zero or more.", "error")
+        return _back("shop")
+    enabled = request.form.get("shop_enabled") == "1"
+    if enabled != store.shop_enabled:
+        log("settings", f"Online shop {'opened' if enabled else 'closed'}")
+    store.shop_enabled, store.shop_min_order = enabled, minimum
+    store.shop_note = request.form.get("shop_note", "").strip() or None
+    db.session.commit()
+    flash("Online shop settings saved.", "success")
+    return _back("shop")
 
 
 @bp.route("/slabs", methods=["POST"])

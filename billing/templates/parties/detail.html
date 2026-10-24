@@ -25,6 +25,15 @@
     </div>
   </form>
 </div>
+{% if customer %}
+<form method="post" action="{{ url_for('parties.shop_access', party_id=party.id) }}" class="card row" style="align-items:center">
+  <div style="flex:1 1 220px"><h2 style="margin:0">{{ icon('cart', 15) }} Online shop</h2>
+    <div class="small muted">{% if party.shop_access %}Approved: logs in with <b>{{ party.phone }}</b>{% else %}Not approved. Login is their mobile number.{% endif %}</div></div>
+  <label class="check"><input type="checkbox" name="shop_access" value="1" {{ 'checked' if party.shop_access }}> Can order online</label>
+  <div><input name="password" type="password" placeholder="{{ 'New password (optional)' if party.shop_password_hash else 'Set a password' }}" autocomplete="new-password" aria-label="Shop password" style="width:200px"></div>
+  <button class="secondary">Save</button>
+</form>
+{% endif %}
 <div class="grid cols-2">
   <div class="card table-wrap"><h2>{{ 'Bills' if customer else 'Purchases' }}</h2>
     <table>

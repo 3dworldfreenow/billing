@@ -18,8 +18,8 @@ from decimal import Decimal
 from openpyxl import Workbook
 
 from .backup import write_backup
-from .models import (AuditLog, Batch, CashEntry, DayClose, Expense, Party, PartyPayment, Product, Promotion, Purchase,
-                     PurchaseItem, Sale, SaleItem, Setting, StockAdjustment, db)
+from .models import (AuditLog, Batch, CashEntry, DayClose, Expense, Order, OrderItem, Party, PartyPayment, Product,
+                     Promotion, Purchase, PurchaseItem, Sale, SaleItem, Setting, StockAdjustment, db)
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -33,7 +33,8 @@ EXPORT = [
     ("Products", Product), ("Batches", Batch), ("Customers & suppliers", Party), ("Bills & credit notes", Sale),
     ("Bill items", SaleItem), ("Purchases & orders", Purchase), ("Purchase items", PurchaseItem),
     ("Party payments", PartyPayment), ("Expenses", Expense), ("Cash entries", CashEntry), ("Day close", DayClose),
-    ("Stock adjustments", StockAdjustment), ("Offers", Promotion), ("Audit log", AuditLog),
+    ("Stock adjustments", StockAdjustment), ("Offers", Promotion), ("Online orders", Order),
+    ("Online order items", OrderItem), ("Audit log", AuditLog),
 ]
 
 
@@ -54,9 +55,9 @@ def export_all():
     wb = Workbook(write_only=True)
     for title, model in EXPORT:
         ws = wb.create_sheet(title[:31])
-        columns = [c.name for c in model.__table__.columns]
-        ws.append(columns)
-        for row in db.session.query(*model.__table__.columns).yield_per(1000):
+        columns = [c for c in model.__table__.columns if not c.name.endswith("password_hash")]  # never export these
+        ws.append([c.name for c in columns])
+        for row in db.session.query(*columns).yield_per(1000):
             ws.append([_cell(v) for v in row])
     buf = io.BytesIO()
     wb.save(buf)

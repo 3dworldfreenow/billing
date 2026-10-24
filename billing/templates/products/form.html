@@ -9,7 +9,7 @@
     <a class="btn secondary" href="{{ url_for('products.index') }}">All products</a>
   </div>
 </div>
-<form method="post" class="card">
+<form method="post" class="card" enctype="multipart/form-data">
   <div class="grid cols-2">
     <div><label for="name">Name *</label><input id="name" name="name" value="{{ product.name or '' }}" required {{ 'autofocus' if product.barcode and not product.id }}></div>
     <div><label for="barcode">Barcode</label>
@@ -40,6 +40,14 @@
       {% else %}<input id="stock" name="stock" inputmode="decimal" value="{{ product.stock|qty if product.stock is not none else '0' }}">{% endif %}</div>
     <div><label for="min_stock">Low-stock alert at</label><input id="min_stock" name="min_stock" inputmode="decimal" value="{{ product.min_stock|qty if product.min_stock is not none else '0' }}"></div>
     <div><label for="plu">Scale PLU (loose items)</label><input id="plu" name="plu" inputmode="numeric" value="{{ product.plu or '' }}" placeholder="e.g. 101"></div>
+  </div>
+  <div class="grid cols-2" style="align-items:center;margin-top:6px">
+    <div class="row" style="align-items:center">
+      {% if product.image %}<img src="{{ url_for('shop.media', name=product.image) }}" alt="" class="thumb lg">{% else %}<span class="thumb lg empty-thumb">{{ icon('camera', 20) }}</span>{% endif %}
+      <div class="field"><label for="image">Photo (for the online shop)</label><input id="image" type="file" name="image" accept="image/*" capture="environment">
+        {% if product.image %}<label class="check small"><input type="checkbox" name="remove_image" value="1"> Remove photo</label>{% endif %}</div>
+    </div>
+    <label class="check"><input type="checkbox" name="online" value="1" {{ 'checked' if product.online is none or product.online }}> Show in the online shop</label>
   </div>
   <div class="row" style="margin-top:1rem">
     <button>Save</button>

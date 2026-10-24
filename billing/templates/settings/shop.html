@@ -1,0 +1,27 @@
+{% extends "settings/_layout.html" %}
+{% block section %}
+<div class="grid cols-2" style="align-items:start">
+  <form method="post" action="{{ url_for('settings.save_shop') }}" class="card">
+    <h2>Online shop</h2>
+    <label class="check"><input type="checkbox" name="shop_enabled" value="1" {{ 'checked' if store.shop_enabled }}> <b>Open the online shop</b> to approved customers</label>
+    <p class="small muted">When it's closed (for example on the offline counter PC), customers can't log in and only the admin can browse the shop as a preview.</p>
+    <label for="shop_note">Message on the shop</label>
+    <input id="shop_note" name="shop_note" value="{{ store.shop_note or '' }}" placeholder="e.g. Home delivery 10 am – 8 pm, within 3 km">
+    <label for="shop_min_order">Minimum order (₹)</label>
+    <input id="shop_min_order" name="shop_min_order" inputmode="decimal" value="{{ store.shop_min_order|qty }}" style="max-width:160px">
+    <p><button>Save</button> <a class="btn secondary" href="{{ url_for('shop.catalog') }}" target="_blank">{{ icon('cart') }} Preview the shop</a></p>
+  </form>
+  <div class="card">
+    <h2>How customers order</h2>
+    <ol class="small" style="padding-left:1.1rem;margin:0">
+      <li>Open a customer (Customers → name) and switch on <b>Online shop</b> with a password. Their mobile number is their login.</li>
+      <li>Send them the shop link: <code>{{ shop_url }}</code></li>
+      <li>They pick products and place an order. It appears under <b>Online orders</b> with a red count.</li>
+      <li>Call them to confirm, click <b>Make bill</b>, pack, deliver.</li>
+    </ol>
+    <h2 style="margin-top:14px">Approved customers ({{ approved|length }})</h2>
+    {% for c in approved %}<div class="row spread small" style="padding:3px 0"><a href="{{ url_for('parties.detail', party_id=c.id) }}">{{ c.name }}</a><span class="muted">{{ c.phone }}</span></div>
+    {% else %}<p class="muted small">No customer approved yet.</p>{% endfor %}
+  </div>
+</div>
+{% endblock %}

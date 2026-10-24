@@ -68,7 +68,12 @@ def edit(product_id=None):
                 if changes:
                     log("product edit", f"{product.name}: " + ", ".join(changes))
             try:
-                db.session.commit()
+                db.session.flush()  # a new product needs its id for the photo's file name
+                error = _photo(product, request)
+                if error:
+                    db.session.rollback()
+                else:
+                    db.session.commit()
             except IntegrityError:
                 db.session.rollback()
                 error = f"Barcode {product.barcode} is already used by another product."
@@ -105,12 +110,27 @@ def _add_to_bill(product, target):
     return redirect(url_for("purchases.bill", purchase_id=doc.id, last=item.id))
 
 
+def _photo(product, req):
+    from ..images import ImageError, remove_product_image, save_product_image
+
+    upload = req.files.get("image")
+    try:
+        if upload and upload.filename:
+            save_product_image(upload, product)
+        elif req.form.get("remove_image") == "1":
+            remove_product_image(product)
+    except ImageError as e:
+        return str(e)
+    return None
+
+
 def _fill(product, form):
     product.name = form.get("name", "").strip()
     product.barcode = form.get("barcode", "").strip() or None
     for field in ("category", "brand", "hsn", "plu"):
         setattr(product, field, form.get(field, "").strip() or None)
     product.unit = form.get("unit", "pcs").strip() or "pcs"
+    product.online = form.get("online") == "1"
     if not product.name:
         return "Name is required."
     for field in NUMERIC:
