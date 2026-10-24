@@ -20,33 +20,11 @@ python3 -m venv .venv
 .venv/bin/flask --app app run --debug
 ```
 
-Open http://127.0.0.1:5000. Without `DATABASE_URL`, data is stored in SQLite at
-`instance/billing.db`. Set `SECRET_KEY` in production.
-
-## Supabase
-
-The app uses Supabase as its Postgres database.
-
-1. In the Supabase dashboard, click **Connect** and copy the **Session pooler** connection string
-   (the direct connection is IPv6-only). Avoid the transaction pooler (port 6543).
-2. Set it as an environment variable. Never commit it:
-   ```bash
-   export DATABASE_URL="postgresql://postgres.<project-ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres"
-   ```
-3. Run the app as above.
-
-The schema lives in `supabase/migrations/`. With the Supabase GitHub integration, migrations are
-applied when they reach the production branch. The app also creates any missing tables at startup,
-so it works against a fresh project too. All tables have Row Level Security enabled with no
-policies, so the public Data API (anon key) can't read billing data. The app connects as the
-database owner and is unaffected.
-
-When you change `billing/models.py`, add a new migration file. Don't edit the existing one.
+Open http://127.0.0.1:5000. Data is stored in SQLite at `instance/billing.db`.
+Set `DATABASE_URL` to use another database and `SECRET_KEY` in production.
 
 ## Test
 
 ```bash
 .venv/bin/pytest
-# against Postgres (use a throwaway database; tables are dropped afterwards):
-TEST_DATABASE_URL="postgresql://..." .venv/bin/pytest
 ```
