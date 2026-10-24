@@ -51,7 +51,21 @@ under **Settings**. Other devices on the shop Wi-Fi can open `http://<pc-ip>:500
 Browsers only allow the **camera** on `https://` or `localhost`, so camera scanning on phones needs the
 online (https) setup below. USB scanners work everywhere.
 
-All data is in `instance/billing.db`. **Back it up** by copying that file (e.g. to Google Drive) regularly.
+All data is in `instance/billing.db`.
+
+### Backups and Google Drive
+
+**Settings → Backup & Google Drive sync** (admin only):
+
+1. Install **Google Drive for desktop** on the shop PC (it shows up as a drive, e.g. `G:`).
+2. Set the backup folder to a folder inside it, e.g. `G:\My Drive\P MART Backups`.
+3. Choose how often (default every 6 hours) and how many copies to keep (default 30).
+
+The app saves a safe copy of the database there while it runs, and Drive uploads it. You can also click
+**Back up now** or **Download backup**. To restore: close the app, copy a backup into `instance`, rename it to
+`billing.db`, and start the app again.
+
+Updating the app is safe: new versions add any new database columns automatically.
 
 ## Run it from GitHub (Codespaces)
 

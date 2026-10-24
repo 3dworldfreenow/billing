@@ -39,6 +39,12 @@ class Setting(db.Model):
     gst_on_sales = db.Column(db.Boolean, nullable=False, default=True)
     bill_footer = db.Column(db.String(200), default="Thank you! Visit again.")
     upi_id = db.Column(db.String(80))  # shown as a payment QR code on bills
+    # Automatic backups, e.g. into a Google Drive for desktop folder.
+    backup_dir = db.Column(db.String(500))
+    backup_hours = db.Column(db.Integer, nullable=False, default=6)  # 0 = off
+    backup_keep = db.Column(db.Integer, nullable=False, default=30)
+    last_backup_at = db.Column(db.DateTime)
+    last_backup_note = db.Column(db.String(300))
 
     @classmethod
     def get(cls):

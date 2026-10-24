@@ -8,6 +8,7 @@ from flask import Flask, g
 from markupsafe import Markup
 
 from .models import DEFAULT_TAX_SLABS, D, Setting, TaxSlab, db, money
+from .schema import add_missing_columns
 
 
 def inr(value):
@@ -76,6 +77,9 @@ def create_app(config=None):
 
     with app.app_context():
         db.create_all()
+        added = add_missing_columns(db.engine, db.metadata)
+        if added:
+            app.logger.info("Database updated, new columns: %s", ", ".join(added))
         if Setting.get() is None:
             db.session.add(Setting(id=1))
             db.session.add_all(TaxSlab(rate=rate, name=name) for rate, name in DEFAULT_TAX_SLABS)

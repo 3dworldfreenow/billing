@@ -35,4 +35,38 @@
     </form>
   </div>
 </div>
+{% if current_user.is_admin %}
+<div class="card" id="backup">
+  <h2>Backup &amp; Google Drive sync</h2>
+  <div class="grid cols-2" style="align-items:start">
+    <form method="post" action="{{ url_for('settings.backup_settings') }}">
+      <label for="backup_dir">Backup folder</label>
+      <input id="backup_dir" name="backup_dir" value="{{ store.backup_dir or '' }}" placeholder="{{ default_backup_dir }}">
+      <p class="small muted" style="margin:.25rem 0 0">For Google Drive: install <b>Google Drive for desktop</b>, then use a folder inside it, e.g. <code>G:\My Drive\{{ store.store_name }} Backups</code>. Drive uploads each backup automatically. Leave empty to keep backups on this PC only.</p>
+      <div class="grid cols-2">
+        <div><label for="backup_hours">Back up automatically</label>
+          <select id="backup_hours" name="backup_hours">
+            {% for h, label in [(1, 'Every hour'), (3, 'Every 3 hours'), (6, 'Every 6 hours'), (12, 'Every 12 hours'), (24, 'Once a day'), (0, 'Off')] %}
+            <option value="{{ h }}" {{ 'selected' if store.backup_hours == h }}>{{ label }}</option>{% endfor %}
+          </select></div>
+        <div><label for="backup_keep">Keep last</label><input id="backup_keep" name="backup_keep" type="number" min="1" max="365" value="{{ store.backup_keep }}"></div>
+      </div>
+      <p><button>Save backup settings</button></p>
+    </form>
+    <div>
+      <label>Last backup</label>
+      {% if store.last_backup_at %}
+        <div class="{{ 'flash error' if 'FAILED' in (store.last_backup_note or '') else 'flash success' }}" style="margin:0">
+          {{ store.last_backup_at.strftime('%d %b %Y, %I:%M %p') }}: {{ store.last_backup_note }}</div>
+      {% else %}<p class="muted">No backup yet.</p>{% endif %}
+      <div class="row" style="margin-top:.75rem">
+        <form method="post" action="{{ url_for('settings.backup_now') }}"><button>Back up now</button></form>
+        <a class="btn secondary" href="{{ url_for('settings.backup_download') }}">⬇ Download backup</a>
+      </div>
+      <p class="small muted">Automatic backups run while the app is started with <code>run_windows.bat</code> / <code>app.py</code>.
+        <b>To restore:</b> close the app, copy a backup file into the <code>instance</code> folder, rename it to <code>billing.db</code>, then start the app.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
