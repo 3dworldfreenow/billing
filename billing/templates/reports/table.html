@@ -19,14 +19,14 @@
 </div>
 {% if filters == 'dates' %}<div class="card no-print">{{ date_filter(date_from, date_to) }}</div>
 {% elif filters == 'stock' %}
-<form method="get" class="card row no-print">
+<form method="get" class="card row no-print" data-live="#results">
   <div class="field"><label for="q">Search</label><input id="q" name="q" value="{{ q }}" placeholder="Name, brand or barcode"></div>
   <div><label for="category">Category</label><select id="category" name="category"><option value="">All</option>{% for c in categories %}<option {{ 'selected' if c == category }}>{{ c }}</option>{% endfor %}</select></div>
   <label class="check"><input type="checkbox" name="low" value="1" {{ 'checked' if low }}> Low stock only</label>
   <button>Show</button>
 </form>
 {% endif %}
-<div class="card table-wrap">
+<div class="card table-wrap" id="results">
   <table>
     <thead><tr>{% for label, kind in columns %}<th class="{{ 'num' if kind != 'text' }}">{{ label }}</th>{% endfor %}</tr></thead>
     <tbody>

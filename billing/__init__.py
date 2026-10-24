@@ -68,9 +68,9 @@ def create_app(config=None):
         app.config["SECRET_KEY"] = _instance_secret(app.instance_path)
     db.init_app(app)
 
-    from .views import auth, parties, products, purchases, reports, sales, settings, stock
+    from .views import api, auth, parties, products, purchases, reports, sales, settings, stock
 
-    for module in (auth, sales, purchases, products, parties, stock, reports, settings):
+    for module in (api, auth, sales, purchases, products, parties, stock, reports, settings):
         app.register_blueprint(module.bp)
     app.before_request(auth.load_user)
 

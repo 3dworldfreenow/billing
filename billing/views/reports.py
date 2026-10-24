@@ -199,9 +199,10 @@ def stock():
     low = request.args.get("low") == "1"
     page = max(request.args.get("page", 1, type=int), 1)
     query = Product.query
-    if q:
-        like = f"%{q}%"
-        query = query.filter(or_(Product.name.ilike(like), Product.barcode == q, Product.brand.ilike(like)))
+    for word in q.split():
+        like = f"%{word}%"
+        query = query.filter(or_(Product.name.ilike(like), Product.barcode.like(f"{word}%"),
+                                 Product.brand.ilike(like)))
     if category:
         query = query.filter(Product.category == category)
     if low:

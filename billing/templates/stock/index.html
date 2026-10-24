@@ -5,7 +5,7 @@
 <div class="page-head"><h1>Stock adjustment</h1>{% if current_user.can('reports') %}<a class="btn secondary" href="{{ url_for('reports.stock') }}">Stock report</a>{% endif %}</div>
 <div class="card">
   <form method="get">
-    <div class="scanbar"><input id="code" name="q" value="{{ q }}" data-scan data-submit-on-scan autocomplete="off" placeholder="Scan or search the product you counted" aria-label="Product">
+    <div class="scanbar"><input id="code" name="q" value="{{ q }}" data-scan data-submit-on-scan data-autocomplete="products" data-pick="go" data-go-url="{{ url_for('stock.index') }}?product_id=__ID__" autocomplete="off" placeholder="Scan or search the product you counted" aria-label="Product">
       <button>Find</button><button type="button" class="secondary" data-camera="code">📷 Camera</button></div>
     <div id="camera"></div>
   </form>
@@ -32,7 +32,7 @@
 {% elif q %}
 <div class="card">
   {% if matches %}<h2>Pick a product</h2>
-  {% for p in matches %}<div><a href="{{ url_for('stock.index', q=p.barcode or p.name) }}">{{ p.name }}</a> <span class="muted small">stock {{ p.stock|qty }}</span></div>{% endfor %}
+  {% for p in matches %}<div><a href="{{ url_for('stock.index', product_id=p.id) }}">{{ p.name }}</a> <span class="muted small">stock {{ p.stock|qty }}</span></div>{% endfor %}
   {% else %}<p class="muted">No product found for “{{ q }}”.</p>{% endif %}
 </div>
 {% endif %}

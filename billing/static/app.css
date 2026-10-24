@@ -82,6 +82,14 @@ td input { padding: .35rem .45rem; min-width: 70px; text-align: right; }
 .flash.error { background: var(--bad-soft); color: var(--bad); border-color: #fecdca; }
 .flash.success { background: var(--ok-soft); color: var(--ok); border-color: #abefc6; }
 
+/* Live search dropdown */
+.ac-wrap { position: relative; flex: 1; min-width: 0; }
+.ac-list { position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 28px rgba(16,24,40,.16); max-height: 360px; overflow-y: auto; }
+.ac-item { display: flex; justify-content: space-between; gap: .75rem; padding: .55rem .8rem; cursor: pointer; border-bottom: 1px solid var(--line); }
+.ac-item:last-child { border-bottom: 0; }
+.ac-item:hover, .ac-item.active { background: var(--brand-soft); }
+.ac-empty { padding: .6rem .8rem; color: var(--muted); }
+
 /* Billing screen */
 .pos { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 1rem; align-items: start; }
 .scanbar { display: flex; gap: .5rem; }

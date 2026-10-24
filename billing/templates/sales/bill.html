@@ -18,7 +18,7 @@
 </div>
 
 {% if draft %}
-<div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id)) }}</div>
+<div class="card">{{ scanbox(url_for('sales.scan', sale_id=sale.id), url_for('sales.add', sale_id=sale.id)) }}</div>
 {% set create = url_for('products.edit', add_to='sale:%d' % sale.id) if current_user.can('products') else None %}
 {{ picker(matches, url_for('sales.add', sale_id=sale.id), add_qty, q, create) }}
 {% endif %}
@@ -57,6 +57,7 @@
     <div class="card totals">
       <label for="party_id">Customer</label>
       {% if draft %}
+      <input data-autocomplete="customers" data-pick="select:party_id" placeholder="Search customer by name or mobile" aria-label="Search customer" style="margin-bottom:.35rem">
       <select id="party_id" name="party_id" onchange="this.form.requestSubmit(this.form.querySelector('[data-update]'))">
         <option value="">Walk-in Customer</option>
         {% for c in customers %}<option value="{{ c.id }}" {{ 'selected' if sale.party_id == c.id }}>{{ c.name }}{% if c.phone %} · {{ c.phone }}{% endif %}</option>{% endfor %}

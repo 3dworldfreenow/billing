@@ -1,13 +1,12 @@
 import re
 from decimal import Decimal
 
-from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
-from sqlalchemy import or_
+from flask import Blueprint, flash, redirect, render_template, request, url_for
 from sqlalchemy.exc import IntegrityError
 
 from ..exporting import cell_text, export_response, read_rows
 from ..models import D, Product, Purchase, PurchaseItem, Sale, SaleItem, TaxSlab, db
-from ..services import parse_decimal
+from ..services import parse_decimal, product_query
 
 bp = Blueprint("products", __name__, url_prefix="/products")
 PAGE_SIZE = 50
@@ -36,19 +35,11 @@ ALIASES = {
 NUMERIC = {"mrp", "sale_rate", "purchase_rate", "gst_rate", "stock", "min_stock"}
 
 
-def _search(query, text):
-    for word in text.split():
-        like = f"%{word}%"
-        query = query.filter(or_(Product.name.ilike(like), Product.brand.ilike(like), Product.barcode == word,
-                                 Product.category.ilike(like)))
-    return query
-
-
 @bp.route("/")
 def index():
     q = request.args.get("q", "").strip()
     page = max(request.args.get("page", 1, type=int), 1)
-    query = _search(Product.query, q).order_by(Product.name)
+    query = product_query(q)
     count = query.count()
     return render_template(
         "products/list.html",
@@ -135,24 +126,13 @@ def delete(product_id):
     return redirect(url_for("products.index"))
 
 
-@bp.route("/lookup")
-def lookup():
-    """JSON product search used by the scanner screens: ?q=barcode or name."""
-    q = request.args.get("q", "").strip()
-    products = _search(Product.query, q).order_by(Product.name).limit(20).all() if q else []
-    return jsonify([
-        {"id": p.id, "name": p.name, "barcode": p.barcode, "mrp": str(p.mrp), "sale_rate": str(p.sale_rate),
-         "stock": str(D(p.stock).normalize())} for p in products
-    ])
-
-
 @bp.route("/export")
 def export():
     fmt = request.args.get("format", "xlsx")
     q = request.args.get("q", "").strip()
     columns = [(label, kind) for _, label, kind in FIELDS]
     rows = [[getattr(p, f) if getattr(p, f) is not None else "" for f, _, _ in FIELDS]
-            for p in _search(Product.query, q).order_by(Product.name)]
+            for p in product_query(q)]
     return export_response("Products", columns, rows, fmt=fmt if fmt in ("xlsx", "csv") else "xlsx")
 
 

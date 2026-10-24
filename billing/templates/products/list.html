@@ -3,7 +3,7 @@
 {% block title %}Products{% endblock %}
 {% block content %}
 <div class="page-head">
-  <h1>Products <span class="muted small">{{ count }}</span></h1>
+  <h1>Products</h1>
   <div class="row">
     <a class="btn secondary" href="{{ url_for('products.import_') }}">⬆ Import</a>
     <a class="btn secondary" href="{{ url_for('products.export', q=q, format='xlsx') }}">⬇ Excel</a>
@@ -12,12 +12,13 @@
   </div>
 </div>
 <div class="card">
-  <form method="get" class="scanbar">
+  <form method="get" class="scanbar" data-live="#results">
     <input name="q" value="{{ q }}" data-scan placeholder="Search by name, brand, category or scan a barcode" aria-label="Search products">
     <button>Search</button>
   </form>
 </div>
-<div class="card table-wrap">
+<div class="card table-wrap" id="results">
+  <p class="small muted" style="margin-top:0">{{ count }} product{{ "s" if count != 1 }}{% if q %} matching “{{ q }}”{% endif %}</p>
   <table>
     <tr><th>Name</th><th>Barcode</th><th>Category</th><th>Brand</th><th class="num">MRP</th><th class="num">Sale rate</th><th class="num">Cost</th><th class="num">GST</th><th class="num">Stock</th></tr>
     {% for p in products %}

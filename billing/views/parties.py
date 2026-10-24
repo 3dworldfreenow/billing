@@ -10,8 +10,8 @@ LABELS = {"customer": "Customers", "supplier": "Suppliers"}
 def _list(kind):
     q = request.args.get("q", "").strip()
     query = Party.query.filter_by(kind=kind)
-    if q:
-        query = query.filter(Party.name.ilike(f"%{q}%") | Party.phone.ilike(f"%{q}%"))
+    for word in q.split():
+        query = query.filter(Party.name.ilike(f"%{word}%") | Party.phone.ilike(f"%{word}%"))
     return render_template("parties/list.html", parties=query.order_by(Party.name).all(), kind=kind,
                            title=LABELS[kind], q=q)
 

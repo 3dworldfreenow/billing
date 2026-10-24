@@ -3,7 +3,7 @@
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import or_
+from sqlalchemy import case, or_
 
 from .models import D, Product, Setting, db, money
 
@@ -22,19 +22,28 @@ def parse_decimal(value, default=None):
         return None
 
 
+def product_query(text):
+    """Products matching every word (name, brand, category or barcode start), best matches first."""
+    query = Product.query
+    words = text.split()
+    for word in words:
+        like = f"%{word}%"
+        query = query.filter(or_(Product.name.ilike(like), Product.brand.ilike(like),
+                                 Product.category.ilike(like), Product.barcode.like(f"{word}%")))
+    if words:
+        query = query.order_by(case((Product.name.ilike(f"{words[0]}%"), 0), else_=1))
+    return query.order_by(Product.name)
+
+
 def find_products(text, limit=30):
-    """Exact barcode match first, then products whose name/brand contain every word."""
+    """An exact barcode match, otherwise the best matches for the text."""
     text = text.strip()
     if not text:
         return []
     product = Product.query.filter_by(barcode=text).first()
     if product:
         return [product]
-    query = Product.query
-    for word in text.split():
-        like = f"%{word}%"
-        query = query.filter(or_(Product.name.ilike(like), Product.brand.ilike(like)))
-    return query.order_by(Product.name).limit(limit).all()
+    return product_query(text).limit(limit).all()
 
 
 def parse_scan(text):

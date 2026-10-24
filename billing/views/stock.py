@@ -10,10 +10,11 @@ REASONS = {"count": "Physical count", "damaged": "Damaged", "expired": "Expired"
 @bp.route("/")
 def index():
     q = request.args.get("q", "").strip()
-    matches = find_products(q) if q else []
+    picked = db.session.get(Product, request.args.get("product_id", type=int) or 0)
+    matches = [picked] if picked else find_products(q) if q else []
     return render_template(
         "stock/index.html",
-        q=q, matches=matches, reasons=REASONS,
+        q=q or (picked.name if picked else ""), matches=matches, reasons=REASONS,
         product=matches[0] if len(matches) == 1 else None,
         recent=StockAdjustment.query.order_by(StockAdjustment.id.desc()).limit(50).all(),
     )
@@ -30,13 +31,13 @@ def adjust(product_id):
         lost = parse_decimal(request.form.get("lost", ""))
         if lost is None or lost <= 0:
             flash("Enter how many units to write off.", "error")
-            return redirect(url_for("stock.index", q=product.barcode or product.name))
+            return redirect(url_for("stock.index", product_id=product.id))
         actual = system - lost
     else:
         actual = parse_decimal(request.form.get("actual", ""))
         if actual is None:
             flash("Enter the counted quantity.", "error")
-            return redirect(url_for("stock.index", q=product.barcode or product.name))
+            return redirect(url_for("stock.index", product_id=product.id))
     db.session.add(StockAdjustment(product=product, system_qty=system, actual_qty=actual, reason=reason,
                                    note=request.form.get("note", "").strip() or None))
     product.stock = actual

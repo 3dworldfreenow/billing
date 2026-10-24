@@ -18,14 +18,14 @@
 {% endif %}
 {% endmacro %}
 
-{% macro scanbox(action, placeholder='Scan barcode or type product name, then Enter') %}
+{% macro scanbox(action, add_url, placeholder='Scan barcode or type product name') %}
 <form method="post" action="{{ action }}" class="no-print">
   <div class="scanbar">
-    <input id="code" name="code" data-scan data-submit-on-scan autocomplete="off" placeholder="{{ placeholder }}" aria-label="Scan barcode or search">
+    <input id="code" name="code" data-scan data-submit-on-scan data-autocomplete="products" data-pick="add" data-add-url="{{ add_url }}" autocomplete="off" placeholder="{{ placeholder }}" aria-label="Scan barcode or search">
     <button>Add</button>
     <button type="button" class="secondary" data-camera="code">📷 Camera</button>
   </div>
-  <div class="small muted" style="margin-top:.35rem">Tip: <b>3*barcode</b> adds 3 at once · <span class="kbd">F2</span> jumps here · negative qty = return</div>
+  <div class="small muted" style="margin-top:.35rem">Type 2+ letters for suggestions (↑ ↓ Enter) · <b>3*barcode</b> adds 3 at once · <span class="kbd">F2</span> jumps here · negative qty = return</div>
   <div id="camera"></div>
 </form>
 {% endmacro %}

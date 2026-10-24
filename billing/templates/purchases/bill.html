@@ -13,7 +13,7 @@
 </div>
 
 {% if draft %}
-<div class="card">{{ scanbox(url_for('purchases.scan', purchase_id=purchase.id)) }}
+<div class="card">{{ scanbox(url_for('purchases.scan', purchase_id=purchase.id), url_for('purchases.add', purchase_id=purchase.id)) }}
   {% if unknown and current_user.can('products') %}
   <p><a class="btn" href="{{ url_for('products.edit', barcode=unknown, add_to='purchase:%d' % purchase.id) }}">+ Create product with barcode {{ unknown }}</a></p>
   {% endif %}

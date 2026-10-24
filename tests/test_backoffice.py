@@ -123,3 +123,25 @@ def test_each_cashier_gets_their_own_bill(app, client):
     other = app.test_client()
     other.post("/login", data={"username": "counter2", "password": "cash1234"})
     assert new_sale(client) != new_sale(other)
+
+
+def test_live_search_api_and_lists(client):
+    names = [p["name"] for p in client.get("/api/products?q=sal").get_json()]
+    assert names[0] == "Tata Salt 1kg"  # name starting with the text ranks first
+    assert [p["name"] for p in client.get("/api/products?q=soap 125").get_json()] == ["Medimix Soap 125g"]
+    assert client.get("/api/products?q=8904018").get_json()[0]["barcode"] == "8904018301680"  # barcode start
+    client.post("/customers/new", data={"name": "Ramesh Kumar", "phone": "9876543210"})
+    assert client.get("/api/customers?q=98765").get_json()[0]["name"] == "Ramesh Kumar"
+    assert b"Tata Salt" in client.get("/products/?q=salt").data
+    assert b"Medimix" not in client.get("/products/?q=salt").data
+    soap = Product.query.filter_by(barcode="8904018301680").one()
+    assert b"System stock" in client.get(f"/stock/?product_id={soap.id}").data
+
+
+def test_search_api_needs_permission(app, client):
+    client.post("/users/new", data={"name": "Clerk", "username": "clerk", "password": "clerk123",
+                                    "perm_parties": "1", "active": "1"})
+    other = app.test_client()
+    other.post("/login", data={"username": "clerk", "password": "clerk123"})
+    assert other.get("/api/products?q=salt").status_code == 403
+    assert other.get("/api/customers?q=a").status_code == 200
