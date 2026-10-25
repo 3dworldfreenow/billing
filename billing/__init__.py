@@ -65,6 +65,13 @@ def create_app(config=None):
     )
     if config:
         app.config.update(config)
+    if app.config.get("BEHIND_PROXY", os.environ.get("BEHIND_PROXY") == "1"):
+        # Served through Caddy/nginx with HTTPS: trust its X-Forwarded-* headers so links,
+        # the shop link and the Google Drive sign-in use https://your-domain.
+        from werkzeug.middleware.proxy_fix import ProxyFix
+
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+        app.config["SESSION_COOKIE_SECURE"] = True
 
     os.makedirs(app.instance_path, exist_ok=True)
     if app.config["SECRET_KEY"] == "dev" and not app.testing:

@@ -81,8 +81,52 @@ uv pip install --python .venv -r requirements.txt
 
 Open port 5000 in the firewall (`firewall-cmd --add-port=5000/tcp --permanent && firewall-cmd --reload` on
 CentOS/Rocky, `ufw allow 5000` on Ubuntu) and browse to `http://<server-ip>:5000`. For use over the internet, put it
-behind HTTPS (a domain with nginx + Let's Encrypt): logins should not travel over plain http, and phone cameras only
-scan on https.
+behind HTTPS on your own domain (below): logins should not travel over plain http, and phone cameras only scan on
+https.
+
+### Your own domain with HTTPS (e.g. billing.example.com)
+
+1. **DNS:** at your domain provider add an **A record**: name `billing`, value = the server's IP address. Wait until
+   `ping billing.example.com` shows that IP.
+2. **Check ports 80 and 443 are free:** `ss -ltnp | grep -E ':(80|443) '`. If nginx or Apache already uses them,
+   add the domain there instead (see "Already have nginx" below).
+3. **Install [Caddy](https://caddyserver.com)** (one file; gets and renews the Let's Encrypt certificate by itself):
+
+   ```bash
+   curl -L -o /usr/local/bin/caddy "https://caddyserver.com/api/download?os=linux&arch=amd64"
+   chmod +x /usr/local/bin/caddy
+   mkdir -p /etc/caddy
+   printf 'billing.example.com {\n    encode gzip\n    reverse_proxy 127.0.0.1:5010\n}\n' > /etc/caddy/Caddyfile
+   firewall-cmd --add-service=http --add-service=https --permanent && firewall-cmd --reload   # Ubuntu: ufw allow 80,443/tcp
+   nohup caddy run --config /etc/caddy/Caddyfile > /var/log/caddy.log 2>&1 &
+   ```
+
+4. **Run the app behind it**, reachable only through Caddy:
+
+   ```bash
+   BEHIND_PROXY=1 HOST=127.0.0.1 PORT=5010 nohup .venv/bin/python app.py > app.log 2>&1 &
+   ```
+
+   `BEHIND_PROXY=1` makes links (the online shop link, invoice links) use
+   `https://billing.example.com` and keeps the login cookie https-only. `HOST=127.0.0.1` closes the plain-http port
+   to the internet; you can also remove it from the firewall (`firewall-cmd --remove-port=5010/tcp --permanent`).
+
+**Already have nginx?** Add a server block and get the certificate with certbot:
+
+```nginx
+server {
+    server_name billing.example.com;
+    client_max_body_size 20m;
+    location / {
+        proxy_pass http://127.0.0.1:5010;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+then `certbot --nginx -d billing.example.com`, and run the app as in step 4.
 
 ## Run on the shop PC
 

@@ -85,3 +85,16 @@ def test_relative_folder_rejected(tmp_path):
         resp = client.post("/settings/backup", data={"backup_dir": "backups", "backup_hours": "6", "backup_keep": "30"},
                            follow_redirects=True)
         assert b"full folder path" in resp.data
+
+
+def test_behind_https_proxy_links_use_the_domain():
+    from billing import create_app
+
+    app = create_app({"TESTING": True, "SQLALCHEMY_DATABASE_URI": "sqlite://", "BEHIND_PROXY": True})
+    with app.app_context():
+        client = app.test_client()
+        proxy = {"X-Forwarded-Proto": "https", "X-Forwarded-Host": "billing.opirsys.com"}
+        client.post("/setup", data={"name": "Owner", "username": "admin", "password": "secret123"}, headers=proxy)
+        page = client.get("/settings/shop", headers=proxy).data.decode()
+        assert "https://billing.opirsys.com/shop/login" in page
+        assert app.config["SESSION_COOKIE_SECURE"]

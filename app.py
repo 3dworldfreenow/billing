@@ -16,5 +16,6 @@ if __name__ == "__main__":
     start_scheduler(app)
 
     port = int(os.environ.get("PORT", 5000))
+    host = os.environ.get("HOST", "0.0.0.0")  # 127.0.0.1 = only reachable through Caddy/nginx
     print(f"Billing app running: open http://localhost:{port} (other devices: http://<this-pc-ip>:{port})")
-    serve(app, host="0.0.0.0", port=port, threads=8)
+    serve(app, host=host, port=port, threads=8)
