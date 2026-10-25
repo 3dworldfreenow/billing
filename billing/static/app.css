@@ -133,6 +133,10 @@ tr.flash-row td { animation: flashrow 1.4s ease-out; }
 @keyframes flashrow { from { background: var(--brand-soft); } to { background: transparent; } }
 td input, td select { height: 28px; padding: 0 7px; min-width: 64px; text-align: right; }
 
+/* Background saving: thin progress line, error toast */
+#progress { position: fixed; top: 0; left: 0; height: 2px; width: 0; background: var(--brand); z-index: 100; opacity: 0; transition: width .3s ease, opacity .2s; pointer-events: none; }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 100; box-shadow: var(--shadow-pop); }
+
 /* Flash messages */
 .flash { padding: 9px 12px; border-radius: var(--radius-sm); margin-bottom: 10px; border: 1px solid; font-weight: 500; }
 .flash.error { background: var(--red-soft); color: #b91c1c; border-color: #f7d0d0; }

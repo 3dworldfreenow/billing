@@ -61,8 +61,10 @@
       <div class="flash {{ category }}">{{ message }}</div>
     {% endfor %}
     {% block content %}{% endblock %}
+    {% block scripts %}{% endblock %}
   </main>
 </div>
+<div id="progress" aria-hidden="true"></div>
 {% else %}
 <main style="max-width:420px;margin:8vh auto;padding:0 16px">
   {% for category, message in get_flashed_messages(with_categories=true) %}
@@ -71,7 +73,6 @@
   {% block public %}{% endblock %}
 </main>
 {% endif %}
-{% block scripts %}{% endblock %}
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>
 </html>
