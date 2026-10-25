@@ -13,6 +13,7 @@
   .receipt hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
   .receipt .big { font-size: 16px; font-weight: 800; }
   .receipt .qr svg { width: 34mm; height: 34mm; }
+  .receipt .bill-qr svg { width: 28mm; height: 28mm; }
   .actions { max-width: 420px; margin: 1rem auto; padding: 0 16px; }
   @page { size: 80mm auto; margin: 0; }
   @media print { .actions { display: none; } body { background: #fff; } }
@@ -63,7 +64,19 @@
   <hr>
   {% if store.bill_footer %}<div class="c">{{ store.bill_footer }}</div>{% endif %}
   {% if sale.cashier_name %}<div class="c small">Cashier: {{ sale.cashier_name }}</div>{% endif %}
+  {% set link = invoice_url(sale) %}
+  {% if link and not public %}<hr><div class="c qr bill-qr">{{ qr_svg(link) }}<div>Scan to download your bill</div></div>{% endif %}
 </div>
+
+{% if public %}
+<div class="actions">
+  <div class="grid cols-2">
+    <button onclick="window.print()">{{ icon('download') }} Download / Save PDF</button>
+    <a class="btn secondary" href="{{ url_for('public.invoice_a4', sale_id=sale.id, sig=sig) }}">A4 GST invoice</a>
+  </div>
+  <p class="small muted c" style="text-align:center">Tap “Download”, then choose <b>Save as PDF</b>.</p>
+</div>
+{% else %}
 
 <div class="actions">
   <div class="grid cols-2">
@@ -77,8 +90,10 @@
       <button class="btn whatsapp">Send</button>
     </div>
   </form>
-  <p class="right small"><a href="{{ url_for('sales.invoice', sale_id=sale.id) }}">A4 GST invoice</a> · <a href="{{ url_for('sales.bill', sale_id=sale.id) }}">Bill details</a></p>
+  <p class="right small"><a href="{{ url_for('sales.invoice', sale_id=sale.id) }}">A4 GST invoice</a> · <a href="{{ url_for('sales.bill', sale_id=sale.id) }}">Bill details</a>
+    {%- if link %} · <a href="{{ link }}" target="_blank" rel="noopener">Customer's link</a>{% endif %}</p>
 </div>
+{% endif %}
 <script>
   document.addEventListener('keydown', (e) => { if (e.key === 'F2') { e.preventDefault(); document.getElementById('new-bill').click(); } });
   {% if request.args.get('autoprint') %}window.addEventListener('load', () => window.print());{% endif %}

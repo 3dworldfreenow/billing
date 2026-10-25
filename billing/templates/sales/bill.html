@@ -138,6 +138,8 @@
         <a class="btn {{ 'secondary' if store.printer_mode != 'browser' else 'success' }}" href="{{ url_for('sales.receipt', sale_id=sale.id, autoprint=1) }}">{% if store.printer_mode == 'browser' %}{{ icon('printer') }} Print receipt{% else %}Receipt on screen{% endif %}</a>
         <a class="btn secondary" href="{{ url_for('sales.invoice', sale_id=sale.id) }}">{{ icon('bills') }} A4 {{ 'credit note' if sale.is_return else 'GST invoice' }}</a>
         <a class="btn whatsapp" href="{{ url_for('sales.receipt', sale_id=sale.id) }}#whatsapp">WhatsApp</a>
+        {% set link = invoice_url(sale) %}
+        {% if link %}<div class="qr bill-qr">{{ qr_svg(link) }}<div class="small muted">Customer scans to download the bill</div></div>{% endif %}
         {% if current_user.can('cancel') %}
           {% if not sale.is_return %}<a class="btn secondary" href="{{ url_for('sales.make_return', sale_id=sale.id) }}">{{ icon('undo') }} Return items</a>{% endif %}
           <button class="danger" form="cancel" onclick="return confirm('Cancel {{ sale.title }}? Stock will be reversed.')">Cancel {{ 'credit note' if sale.is_return else 'bill' }}</button>

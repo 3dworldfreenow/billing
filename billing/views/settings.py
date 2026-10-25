@@ -1,9 +1,8 @@
 import os
-import secrets
 import tempfile
 
 from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, render_template, request, send_file,
-                   session, url_for)
+                   url_for)
 from sqlalchemy.exc import IntegrityError
 
 from ..backup import BackupError, default_folder, run_backup, write_backup
@@ -11,7 +10,7 @@ from ..models import AuditLog, Party, Setting, TaxSlab, User, db
 from ..services import log, parse_decimal
 
 bp = Blueprint("settings", __name__, url_prefix="/settings")
-SECTIONS = {"store": "Store", "gst": "GST slabs", "shop": "Online shop", "devices": "Scale & printer", "backup": "Backup & Google Drive",
+SECTIONS = {"store": "Store", "gst": "GST slabs", "shop": "Online shop", "devices": "Scale & printer", "backup": "Backup & export",
             "audit": "Audit log"}
 ADMIN_SECTIONS = {"backup", "audit"}  # backups hold every bill and the users' password hashes
 
@@ -40,7 +39,6 @@ def index(section="store"):
         context["approved"] = Party.query.filter_by(kind="customer", shop_access=True).order_by(Party.name).all()
     elif section == "backup":
         context["default_backup_dir"] = default_folder(current_app)
-        context["redirect_uri"] = url_for("settings.drive_callback", _external=True)
     elif section == "audit":
         query = AuditLog.query
         if request.args.get("user_id", type=int):
@@ -148,7 +146,7 @@ def test_printer():
     return _back("devices")
 
 
-# --- Backup & Google Drive (admin) ------------------------------------------------------
+# --- Backup & export (admin) ------------------------------------------------------
 
 
 @bp.route("/backup", methods=["POST"])
@@ -201,84 +199,9 @@ def backup_download():
 def export_all():
     """All data as one Excel workbook (one sheet per table)."""
     _admin_only()
-    from ..drive import XLSX, export_all, export_filename
+    from ..export_data import XLSX, export_all, export_filename
 
     log("export all data")
     db.session.commit()
     return Response(export_all(), mimetype=XLSX,
                     headers={"Content-Disposition": f'attachment; filename="{export_filename()}"'})
-
-
-@bp.route("/drive", methods=["POST"])
-def drive_settings():
-    _admin_only()
-    store = Setting.get()
-    client_id = request.form.get("drive_client_id", "").strip()
-    secret = request.form.get("drive_client_secret", "").strip()
-    if client_id != (store.drive_client_id or "") or (secret and secret != store.drive_client_secret):
-        store.drive_refresh_token = None  # new client: connect again
-    store.drive_client_id = client_id or None
-    if secret:
-        store.drive_client_secret = secret
-    store.drive_auto = request.form.get("drive_auto") == "1"
-    db.session.commit()
-    flash("Google Drive settings saved.", "success")
-    return _back("backup")
-
-
-@bp.route("/drive/connect", methods=["POST"])
-def drive_connect():
-    _admin_only()
-    from ..drive import DriveError, auth_url
-
-    session["drive_state"] = secrets.token_urlsafe(24)
-    try:
-        return redirect(auth_url(Setting.get(), url_for("settings.drive_callback", _external=True),
-                                 session["drive_state"]))
-    except DriveError as e:
-        flash(str(e), "error")
-        return _back("backup")
-
-
-@bp.route("/drive/callback")
-def drive_callback():
-    _admin_only()
-    from ..drive import DriveError, finish_connect
-
-    if request.args.get("error"):
-        flash(f"Google Drive not connected: {request.args['error']}", "error")
-    elif not request.args.get("state") or request.args.get("state") != session.pop("drive_state", None):
-        flash("Connection expired. Click Connect again.", "error")
-    else:
-        try:
-            finish_connect(Setting.get(), request.args.get("code", ""),
-                           url_for("settings.drive_callback", _external=True))
-            log("google drive connected")
-            db.session.commit()
-            flash("Google Drive connected. Click “Upload to Google Drive now” to test it.", "success")
-        except DriveError as e:
-            db.session.rollback()
-            flash(str(e), "error")
-    return _back("backup")
-
-
-@bp.route("/drive/upload", methods=["POST"])
-def drive_upload():
-    _admin_only()
-    from ..drive import upload_now
-
-    ok, note = upload_now(current_app)
-    flash(note, "success" if ok else "error")
-    return _back("backup")
-
-
-@bp.route("/drive/disconnect", methods=["POST"])
-def drive_disconnect():
-    _admin_only()
-    store = Setting.get()
-    store.drive_refresh_token = store.drive_folder_id = None
-    store.drive_auto = False
-    log("google drive disconnected")
-    db.session.commit()
-    flash("Google Drive disconnected.", "success")
-    return _back("backup")

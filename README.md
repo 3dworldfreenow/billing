@@ -17,6 +17,9 @@ A modern billing and inventory app for marts and grocery stores, built with Pyth
 - **Returns** from a saved bill make a **credit note** (CN-1, CN-2…), refunded in cash/UPI/card or to the customer's account
 - Print an 80 mm receipt (browser, or **straight to a thermal printer** with cash drawer), an A4 GST invoice,
   or **send on WhatsApp**
+- **Invoice link** (online copy on https): the receipt, the bill screen and the thermal printout carry a QR code
+  the customer scans to open and download their bill, and the WhatsApp message ends with the same link. Each link
+  has a secret signature, so customers can't open each other's bills.
 
 **Cash register**: opening cash, cash in/out, expenses, end-of-day close per cashier (expected vs counted cash).
 
@@ -51,7 +54,8 @@ delivered; the customer sees each step. While the shop is closed (e.g. on the of
 preview it. Product photos are shrunk automatically and stored in `instance/uploads` (copy that folder along with
 your backups).
 
-**Data safety**: automatic backups, **export all data** to one Excel file, and **direct upload to Google Drive**.
+**Data safety**: automatic backups, **export all data** to one Excel file and download a database backup (then upload
+them to Google Drive yourself).
 
 ### Keyboard shortcuts (billing screen)
 
@@ -140,14 +144,13 @@ online (https) setup below. USB scanners work everywhere.
 
 All data is in `instance/billing.db`.
 
-### Backups and Google Drive
+### Backups and export
 
-**Settings → Backup & Google Drive** (admin only):
+**Settings → Backup & export** (admin only):
 
 - **Export all data**: one Excel file, a sheet per table (products, bills, purchases, customers, payments, …).
-- **Google Drive (direct upload)**: a one-time setup on that page (create a free Google OAuth client, about
-  10 minutes), then **Upload to Google Drive now** sends a database backup plus the Excel export to a
-  "<store> Backups" folder. Tick the box to also upload with every automatic backup.
+- **Download database backup**: the whole database as one file. To keep a copy in Google Drive, open
+  drive.google.com → New → File upload and pick the downloaded file.
 - **Automatic backups** to a folder on the PC every few hours (default 6, keeping 30). Pointing that folder at a
   Google Drive for desktop folder (e.g. `G:\My Drive\P MART Backups`) also syncs them to Drive.
 - To restore: close the app, copy a backup into `instance`, rename it to `billing.db`, and start the app again.

@@ -398,7 +398,7 @@ def test_printer_unreachable_falls_back_to_screen(client):
     assert db.session.get(Sale, sale_id).status == "saved"
 
 
-# --- Export all and Google Drive -----------------------------------------------------------------------
+# --- Export all -----------------------------------------------------------------------------------------
 
 
 def test_export_all_data(client):
@@ -410,60 +410,51 @@ def test_export_all_data(client):
     assert len(list(wb["Products"].values)) == 4
 
 
-def test_google_drive_connect_and_upload(client, tmp_path, monkeypatch):
-    import billing.drive as drive
-
-    calls = []
-
-    def fake_call(req):
-        calls.append((req.get_method(), req.full_url))
-        if req.full_url == drive.TOKEN_URL:
-            body = req.data.decode()
-            return {"refresh_token": "r-1"} if "authorization_code" in body else {"access_token": "a-1"}
-        if req.full_url == drive.FILES_URL:
-            return {"id": "folder-1"}
-        return {"id": "file-1", "name": "x"}
-
-    monkeypatch.setattr(drive, "_call", fake_call)
-    monkeypatch.setattr(drive, "write_backup", lambda app, folder, keep: _fake_backup(tmp_path))
-    client.post("/settings/drive", data={"drive_client_id": "cid.apps.googleusercontent.com",
-                                         "drive_client_secret": "secret"})
-    resp = client.post("/settings/drive/connect")
-    assert resp.headers["Location"].startswith(drive.AUTH_URL) and "drive.file" in resp.headers["Location"]
-    state = resp.headers["Location"].split("state=")[1]
-    assert b"expired" in client.get("/settings/drive/callback?code=c&state=wrong", follow_redirects=True).data
-    resp = client.post("/settings/drive/connect")
-    state = resp.headers["Location"].split("state=")[1]
-    assert b"Google Drive connected" in client.get(f"/settings/drive/callback?code=c&state={state}",
-                                                   follow_redirects=True).data
-    assert Setting.get().drive_refresh_token == "r-1"
-    resp = client.post("/settings/drive/upload", follow_redirects=True)
-    assert b"Uploaded" in resp.data
-    uploads = [url for method, url in calls if url.startswith("https://www.googleapis.com/upload")]
-    assert len(uploads) == 2 and Setting.get().drive_folder_id == "folder-1"
+def test_backup_page_has_export_and_no_drive_login(client):
+    page = client.get("/settings/backup").data.decode()
+    assert "Export all data" in page and "drive.google.com" in page and "Client secret" not in page
+    assert client.post("/settings/drive/connect").status_code == 404
 
 
-def _fake_backup(tmp_path):
-    path = tmp_path / "billing-backup-test.db"
-    path.write_bytes(b"SQLite format 3\x00")
-    return str(path)
+# --- Invoice links ---------------------------------------------------------------------------
 
 
-def test_drive_error_is_reported(client):
-    Setting.get().drive_refresh_token = "r"
-    Setting.get().drive_client_id = "c"
-    db.session.commit()
-    import billing.drive as drive
+def test_invoice_link_in_whatsapp_qr_and_public_page(app, client):
+    sale = sell(client, SOAP)
+    https = {"base_url": "https://localhost"}
+    url = client.get(f"/sales/{sale.id}/whatsapp?phone=9876543210", **https).headers["Location"]
+    from urllib.parse import parse_qs, urlparse
 
-    def boom(req):
-        raise drive.DriveError("Google said 401: invalid_grant")
+    text = parse_qs(urlparse(url).query)["text"][0]
+    assert text.startswith("*P MART*") and "TOTAL" in text
+    link = text.splitlines()[-1]
+    assert text.splitlines()[-2] == "View / download your bill:" and link.startswith(
+        f"https://localhost/b/{sale.id}-")
+    assert link in client.get(f"/sales/{sale.id}/receipt", **https).data.decode()
+    assert "Customer scans to download" in client.get(f"/sales/{sale.id}", **https).data.decode()
+    # Anyone with the link sees the bill without logging in; a changed number or signature doesn't open.
+    stranger = app.test_client()
+    path = urlparse(link).path
+    page = stranger.get(path).data.decode()
+    assert "Medimix Soap" in page and "Save as PDF" in page and "New bill" not in page
+    assert stranger.get(path + "/a4").status_code == 200
+    assert stranger.get(path.replace(f"/{sale.id}-", f"/{sale.id + 1}-")).status_code == 404
+    assert stranger.get(path[:-1] + ("0" if path[-1] != "0" else "1")).status_code == 404
 
-    drive_call, drive._call = drive._call, boom
-    try:
-        resp = client.post("/settings/drive/upload", follow_redirects=True)
-    finally:
-        drive._call = drive_call
-    assert b"Upload FAILED: Google said 401" in resp.data
+
+def test_no_invoice_link_on_plain_http(client):
+    sale = sell(client, SOAP)
+    url = client.get(f"/sales/{sale.id}/whatsapp").headers["Location"]
+    assert "download" not in url and "Scan to download" not in client.get(f"/sales/{sale.id}/receipt").data.decode()
+
+
+def test_thermal_receipt_prints_qr_for_link(client):
+    from billing.printing import receipt_bytes
+
+    sale = sell(client, SOAP)
+    data = receipt_bytes(sale, 32, "https://billing.opirsys.com/b/1-abc")
+    assert b"Scan to download your bill" in data and b"\x1d(k" in data and b"https://billing.opirsys.com/b/1-abc" in data
+    assert b"\x1d(k" not in receipt_bytes(sale, 32)
 
 
 def test_settings_sections_and_admin_only(app, client):

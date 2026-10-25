@@ -83,10 +83,6 @@ def start_scheduler(app, check_every=300):
                     )
                     if due:
                         run_backup(app)
-                        if store.drive_auto and store.drive_refresh_token:
-                            from .drive import upload_now
-
-                            upload_now(app)
             except Exception as e:  # never let the thread die; the settings page shows failures
                 app.logger.warning("Scheduled backup failed: %s", e)
             time.sleep(check_every)

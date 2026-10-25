@@ -67,7 +67,7 @@ def create_app(config=None):
         app.config.update(config)
     if app.config.get("BEHIND_PROXY", os.environ.get("BEHIND_PROXY") == "1"):
         # Served through Caddy/nginx with HTTPS: trust its X-Forwarded-* headers so links,
-        # the shop link and the Google Drive sign-in use https://your-domain.
+        # the shop link and customers' invoice links use https://your-domain.
         from werkzeug.middleware.proxy_fix import ProxyFix
 
         app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
@@ -78,10 +78,10 @@ def create_app(config=None):
         app.config["SECRET_KEY"] = _instance_secret(app.instance_path)
     db.init_app(app)
 
-    from .views import (api, auth, cash, offers, orders, parties, products, purchases, reports, sales, settings,
-                        shop, stock)
+    from .views import (api, auth, cash, offers, orders, parties, products, public, purchases, reports, sales,
+                        settings, shop, stock)
 
-    for module in (api, auth, cash, offers, orders, shop, sales, purchases, products, parties, stock, reports, settings):
+    for module in (api, auth, cash, offers, orders, public, shop, sales, purchases, products, parties, stock, reports, settings):
         app.register_blueprint(module.bp)
     app.before_request(auth.load_user)
 
@@ -96,6 +96,10 @@ def create_app(config=None):
             db.session.commit()
 
     app.add_template_global(icon)  # a global, so imported macros can use it too
+    from .invoice_links import invoice_url, qr_svg
+
+    app.add_template_global(invoice_url)
+    app.add_template_global(qr_svg)
     app.add_template_filter(inr)
     app.add_template_filter(qty)
 

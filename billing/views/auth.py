@@ -31,7 +31,7 @@ def load_user():
     g.user = db.session.get(User, user_id) if user_id else None
     if g.user is not None and not g.user.active:
         g.user = None
-    if request.blueprint == "shop":
+    if request.blueprint in ("shop", "public"):
         return None  # customers have their own login; staff are only looked up (admin preview)
     if g.user is None:
         if User.query.first() is None:

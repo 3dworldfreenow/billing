@@ -11,39 +11,12 @@
   </div>
 
   <div class="card">
-    <h2>Google Drive</h2>
-    {% if store.drive_refresh_token %}
-      <p><span class="badge ok">Connected</span> Uploads go to the folder “{{ store.store_name }} Backups” in your Drive.</p>
-      <div class="row">
-        <form method="post" action="{{ url_for('settings.drive_upload') }}"><button>{{ icon('upload') }} Upload to Google Drive now</button></form>
-        <form method="post" action="{{ url_for('settings.drive_disconnect') }}" onsubmit="return confirm('Disconnect Google Drive?')"><button class="danger">Disconnect</button></form>
-      </div>
-      <p class="small muted">Each upload has a database backup (.db) and the Excel export.</p>
-    {% else %}
-      <p class="small">Connect once, then upload with one click (or automatically with every backup).</p>
-      <details {{ 'open' if not store.drive_client_id }}><summary class="small"><b>One-time setup (10 minutes)</b></summary>
-        <ol class="small">
-          <li>Open <a href="https://console.cloud.google.com/" target="_blank" rel="noopener">console.cloud.google.com</a> with your Google account and create a project (any name).</li>
-          <li>APIs &amp; Services → Library → enable <b>Google Drive API</b>.</li>
-          <li>OAuth consent screen → External → fill the app name and your email → add yourself under <b>Test users</b>.</li>
-          <li>Credentials → Create credentials → <b>OAuth client ID</b> → type <b>Web application</b> → Authorized redirect URI:<br><code>{{ redirect_uri }}</code></li>
-          <li>Copy the <b>Client ID</b> and <b>Client secret</b> below, save, then click Connect.</li>
-        </ol>
-        <p class="small muted">Open this page as <code>http://localhost:5000</code> on the counter PC when connecting: Google only accepts that (or an https address) as the return address.</p>
-      </details>
-    {% endif %}
-    <form method="post" action="{{ url_for('settings.drive_settings') }}">
-      <div class="grid cols-2">
-        <div><label for="drive_client_id">Client ID</label><input id="drive_client_id" name="drive_client_id" value="{{ store.drive_client_id or '' }}"></div>
-        <div><label for="drive_client_secret">Client secret</label><input id="drive_client_secret" name="drive_client_secret" type="password" placeholder="{{ '•••••• (saved)' if store.drive_client_secret else '' }}" autocomplete="off"></div>
-      </div>
-      <label class="check"><input type="checkbox" name="drive_auto" value="1" {{ 'checked' if store.drive_auto }}> Also upload to Drive with every automatic backup</label>
-      <div class="row"><button class="secondary">Save</button>
-        {% if store.drive_client_id and not store.drive_refresh_token %}<button class="btn" form="drive-connect">Connect Google Drive</button>{% endif %}</div>
-    </form>
-    <form id="drive-connect" method="post" action="{{ url_for('settings.drive_connect') }}"></form>
-    {% if store.last_drive_at %}<div class="flash {{ 'error' if 'FAILED' in (store.last_drive_note or '') else 'success' }}" style="margin:.75rem 0 0">
-      {{ store.last_drive_at.strftime('%d %b %Y, %I:%M %p') }}: {{ store.last_drive_note }}</div>{% endif %}
+    <h2>Save a copy to Google Drive</h2>
+    <ol class="small" style="margin:0;padding-left:1.1rem;line-height:1.7">
+      <li>Click <b>Export all data</b> (and/or <b>Download database backup</b>) on the left.</li>
+      <li>Open <a href="https://drive.google.com" target="_blank" rel="noopener">drive.google.com</a> → <b>New</b> → <b>File upload</b> → pick the downloaded file.</li>
+    </ol>
+    <p class="small muted">On the shop PC you can also install <b>Google Drive for desktop</b> and set the backup folder below to a folder inside it: every automatic backup then goes to Drive by itself.</p>
   </div>
 </div>
 

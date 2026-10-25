@@ -60,7 +60,7 @@ class Setting(db.Model):
     printer_width = db.Column(db.Integer, nullable=False, default=48)  # characters: 48 for 80mm, 32 for 58mm
     auto_print = db.Column(db.Boolean, nullable=False, default=True)
     open_drawer = db.Column(db.Boolean, nullable=False, default=True)
-    # Google Drive direct upload (OAuth, drive.file scope).
+    # Unused: from the old Google Drive direct upload (kept so existing databases stay valid).
     drive_client_id = db.Column(db.String(200))
     drive_client_secret = db.Column(db.String(200))
     drive_refresh_token = db.Column(db.String(500))

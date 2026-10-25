@@ -18,4 +18,7 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     host = os.environ.get("HOST", "0.0.0.0")  # 127.0.0.1 = only reachable through Caddy/nginx
     print(f"Billing app running: open http://localhost:{port} (other devices: http://<this-pc-ip>:{port})")
-    serve(app, host=host, port=port, threads=8)
+    proxy = {}
+    if os.environ.get("BEHIND_PROXY") == "1":  # trust Caddy/nginx on this server for https and the domain name
+        proxy = {"trusted_proxy": "127.0.0.1", "trusted_proxy_headers": "x-forwarded-proto x-forwarded-host x-forwarded-for"}
+    serve(app, host=host, port=port, threads=8, **proxy)

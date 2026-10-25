@@ -33,7 +33,20 @@ def _amt(value):
     return f"{D(value):,.2f}"
 
 
-def receipt_bytes(sale, width):
+def qr_bytes(data, size=6):
+    """ESC/POS native QR code (GS ( k), supported by most Epson-compatible receipt printers."""
+    payload = data.encode()
+    store = len(payload) + 3
+
+    def cmd(fn, body):
+        n = len(body) + 2
+        return GS + b"(k" + bytes([n % 256, n // 256, 49, fn]) + body
+
+    return (cmd(65, b"\x32\x00") + cmd(67, bytes([size])) + cmd(69, b"\x31")  # model 2, module size, level M
+            + GS + b"(k" + bytes([store % 256, store // 256, 49, 80, 48]) + payload + cmd(81, b"\x30"))
+
+
+def receipt_bytes(sale, width, link=None):
     """The bill laid out for a `width`-character thermal printer."""
     store = Setting.get()
     out = [INIT, CENTER, BOLD_ON, BIG, _text(store.store_name), b"\n", NORMAL, BOLD_OFF]
@@ -82,6 +95,8 @@ def receipt_bytes(sale, width):
         out += [rule, _text(store.bill_footer), b"\n"]
     if sale.cashier_name:
         out += [_text(f"Cashier: {sale.cashier_name}"), b"\n"]
+    if link:
+        out += [rule, _text("Scan to download your bill"), b"\n", qr_bytes(link), b"\n"]
     out += [b"\n\n", CUT]
     return b"".join(out)
 
@@ -119,9 +134,9 @@ def send(data, store=None):
         raise PrinterError("Direct printing is off (Settings → Printer).")
 
 
-def print_sale(sale, open_drawer=False):
+def print_sale(sale, open_drawer=False, link=None):
     store = Setting.get()
-    data = receipt_bytes(sale, store.printer_width)
+    data = receipt_bytes(sale, store.printer_width, link)
     if open_drawer and store.open_drawer:
         data = DRAWER + data
     send(data, store)

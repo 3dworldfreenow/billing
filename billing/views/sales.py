@@ -6,6 +6,7 @@ from urllib.parse import quote, urlencode
 from flask import Blueprint, abort, flash, g, redirect, render_template, request, url_for
 
 from .. import inr
+from ..invoice_links import invoice_url
 from ..models import PAYMENT_MODES, Batch, D, Party, Product, Promotion, Sale, SaleItem, Setting, db
 from ..services import (BillError, apply_redeem, cancel_sale, create_return, find_products, log, parse_decimal,
                         resolve_scan, returnable_qty, save_sale)
@@ -185,7 +186,7 @@ def after_save_print(sale):
         from ..printing import PrinterError, print_sale
 
         try:
-            print_sale(sale, open_drawer=sale.payment_mode == "cash")
+            print_sale(sale, open_drawer=sale.payment_mode == "cash", link=invoice_url(sale))
             flash(f"{sale.title} saved and printed: ₹{sale.net}.", "success")
             return redirect(url_for("sales.pos"))
         except PrinterError as e:
@@ -272,7 +273,7 @@ def print_direct(sale_id):
 
     sale = db.get_or_404(Sale, sale_id)
     try:
-        print_sale(sale)
+        print_sale(sale, link=invoice_url(sale))
         flash(f"{sale.title} sent to the printer.", "success")
     except PrinterError as e:
         flash(str(e), "error")
@@ -320,7 +321,7 @@ def _num(value):
     return f"{D(value).normalize():f}"
 
 
-def bill_text(sale):
+def bill_text(sale, link=None):
     """The bill as a WhatsApp message: *bold* headings, items in a ``` monospace ``` block so columns line up."""
     store = Setting.get()
     head = [f"*{store.store_name}*"]
@@ -385,6 +386,8 @@ def bill_text(sale):
         totals.append(f"Points earned: {sale.points_earned} (balance {sale.party.points})")
 
     footer = ["", f"_{store.bill_footer}_"] if store.bill_footer else []
+    if link:
+        footer += ["", "View / download your bill:", link]
     return "\n".join(head + ["", "```", *table, "```", ""] + totals + footer)
 
 
@@ -395,7 +398,7 @@ def whatsapp(sale_id):
     if sale.status == "draft":
         return _to_bill(sale)
     phone = request.args.get("phone") or (sale.party.phone if sale.party else "")
-    return redirect(whatsapp_url(phone, bill_text(sale)))
+    return redirect(whatsapp_url(phone, bill_text(sale, invoice_url(sale))))
 
 
 @bp.route("/sales")
