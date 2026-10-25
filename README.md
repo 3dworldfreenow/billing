@@ -145,7 +145,7 @@ then `nginx -t && systemctl reload nginx` and `certbot --nginx -d billing.exampl
 <VirtualHost *:80>
     ServerName billing.example.com
     ProxyPreserveHost On
-    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+    RequestHeader set X-Forwarded-Proto "https" env=HTTPS
     ProxyPass / http://127.0.0.1:5010/
     ProxyPassReverse / http://127.0.0.1:5010/
 </VirtualHost>
