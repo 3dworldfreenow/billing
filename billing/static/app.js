@@ -236,6 +236,7 @@
     root.querySelectorAll('[data-autocomplete]').forEach(autocomplete);
     root.querySelectorAll('form[data-live]').forEach(liveSearch);
     root.querySelectorAll('[data-camera]').forEach(camera);
+    if (window.charts) window.charts.mount(root);
     // Barcode fields in forms: the scanner's Enter moves to the next field instead of submitting.
     root.querySelectorAll('[data-barcode-field]').forEach((input) => input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter') return;

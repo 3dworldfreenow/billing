@@ -5,6 +5,7 @@ from decimal import Decimal
 from flask import Blueprint, Response, render_template, request, url_for
 from sqlalchemy import func, or_
 
+from .. import insights
 from ..exporting import XLSX, export_response
 from ..models import PAYMENT_MODES, Batch, D, Expense, Party, Product, Purchase, PurchaseItem, Sale, SaleItem, db, money
 
@@ -77,22 +78,30 @@ def link(value, endpoint, **params):
 
 @bp.route("/")
 def dashboard():
-    today = date.today()
-    start = datetime.combine(today, time.min)
-    month = datetime.combine(today.replace(day=1), time.min)
-    end = start + timedelta(days=1)
+    kind = request.args.get("period", "month")
+    period = insights.Period.around(kind if kind in insights.PERIODS else "month",
+                                    _parse_date(request.args.get("on"), date.today()))
+    previous = period.to_date()
+    sales, sales_before = insights.sales_totals(period), insights.sales_totals(previous)
+    expenses, expenses_before = insights.expense_totals(period), insights.expense_totals(previous)
     low = Product.query.filter(Product.min_stock > 0, Product.stock <= Product.min_stock)
+    charts = {
+        "trend": insights.trend(period), "modes": insights.payment_modes(period),
+        "products": insights.top_products(period), "expenses": insights.expense_split(period),
+    }
     return render_template(
         "reports/dashboard.html",
-        today_sales=summarise(_saved(Sale, start, end)),
-        month_sales=summarise(_saved(Sale, month, end)),
-        purchases_month=sum((D(p.net) for p in _saved(Purchase, month, end)), Decimal(0)),
-        low_stock=low.order_by(Product.name).limit(10).all(),
+        period=period, periods=insights.PERIODS, sales=sales, expenses=expenses,
+        purchases=insights.purchase_totals(period),
+        receivable=insights.outstanding("customer"), payable=insights.outstanding("supplier"),
+        sales_change=insights.change(sales["net"], sales_before["net"]),
+        profit_change=insights.change(sales["profit"], sales_before["profit"]),
+        expenses_change=insights.change(expenses["total"], expenses_before["total"]),
+        charts=charts,
+        low_stock=low.order_by(Product.name).limit(8).all(),
         low_count=low.count(),
-        recent=Sale.query.filter_by(status="saved").order_by(Sale.id.desc()).limit(8).all(),
-        expiring=_expiring(30).limit(10).all(),
-        expenses_month=D(db.session.query(func.sum(Expense.amount)).filter(Expense.created_at >= month).scalar()),
-        modes=PAYMENT_MODES,
+        recent=Sale.query.filter_by(status="saved").order_by(Sale.id.desc()).limit(6).all(),
+        expiring=_expiring(30).limit(8).all(),
         reports=REPORTS,
     )
 

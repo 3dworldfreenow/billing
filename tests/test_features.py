@@ -486,3 +486,29 @@ def test_all_pages_render(client):
                 f"/sales/{sale.id}/invoice", "/purchases/orders/new"]:
         resp = client.get(url, follow_redirects=True)
         assert resp.status_code == 200, url
+
+
+# --- Dashboard ----------------------------------------------------------------------------
+
+
+def test_dashboard_periods_and_charts(client):
+    sell(client, f"2*{SOAP}")
+    for period in ["day", "week", "month", "year", "bogus"]:
+        page = client.get(f"/reports/?period={period}").data.decode()
+        assert 'data-chart="area"' in page and "Payment modes" in page, period
+    page = client.get("/reports/?period=day").data.decode()
+    assert "₹84" in page and "Received" in page
+    old = client.get("/reports/?period=month&on=2020-02-10").data.decode()
+    assert "February 2020" in old and "No sales in this period" in old and "Today" in old
+
+
+def test_period_ranges():
+    from billing.insights import Period
+
+    week = Period.around("week", date(2026, 10, 25))  # a Sunday
+    assert (week.start, week.end) == (date(2026, 10, 19), date(2026, 10, 26))
+    fy = Period.around("year", date(2026, 2, 1))
+    assert fy.label == "FY 2025-26" and len(fy.buckets()) == 12 and fy.buckets()[0][1] == "Apr"
+    month = Period.around("month", date(2024, 2, 29))
+    assert len(month.buckets()) == 29 and month.previous.label == "January 2024" and month.next.label == "March 2024"
+    assert Period.around("day", date(2026, 1, 1)).buckets()[13][2] == "1pm – 2pm"

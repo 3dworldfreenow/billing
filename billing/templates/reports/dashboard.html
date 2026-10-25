@@ -1,45 +1,109 @@
 {% extends "base.html" %}
 {% block title %}Dashboard{% endblock %}
+{% macro delta(value, up_is_good=True) %}
+  {%- if value is not none -%}
+  {%- set good = (value >= 0) == up_is_good -%}
+  <span class="delta {{ 'good' if good else 'bad' }}" title="Compared with {{ period.compared_to }}">{{ '▲' if value >= 0 else '▼' }} {{ '%.0f'|format(value|abs) }}%</span>
+  {%- endif -%}
+{% endmacro %}
+{% macro split(a_label, a, b_label, b) %}
+  {%- set total = a + b -%}
+  <div class="split" aria-hidden="true">{% if total > 0 %}<i style="flex:{{ a|float }}"></i><i class="b" style="flex:{{ b|float }}"></i>{% endif %}</div>
+  <div class="split-legend"><span><i></i>{{ a_label }} <b>₹{{ a|inr }}</b></span><span><i class="b"></i>{{ b_label }} <b>₹{{ b|inr }}</b></span></div>
+{% endmacro %}
 {% block content %}
-<div class="page-head"><div><h1>Dashboard</h1><div class="muted small">{{ today.strftime('%A, %d %B %Y') }}</div></div>
-  {% if current_user.can('sales') %}<a class="btn" href="{{ url_for('sales.pos') }}">{{ icon('plus') }} New bill</a>{% endif %}</div>
-<div class="grid cols-4">
-  <div class="card stat"><span class="chip brand">{{ icon('rupee') }}</span><div class="label">Today's sales</div><div class="value">₹{{ today_sales.net|inr }}</div>
-    <div class="small muted">{{ today_sales.bills }} bills{% if today_sales.bills %} · avg ₹{{ (today_sales.net / today_sales.bills)|inr }}{% endif %}</div></div>
-  <div class="card stat"><span class="chip green">{{ icon('trend') }}</span><div class="label">Today's profit</div><div class="value {{ 'text-red' if today_sales.profit < 0 else 'text-green' }}">₹{{ today_sales.profit|inr }}</div>
-    <div class="small"><span class="badge mode-cash">Cash ₹{{ today_sales.cash|inr }}</span> <span class="badge mode-upi">UPI ₹{{ today_sales.upi|inr }}</span></div></div>
-  <div class="card stat"><span class="chip violet">{{ icon('chart') }}</span><div class="label">This month's sales</div><div class="value">₹{{ month_sales.net|inr }}</div>
-    <div class="small muted">{{ month_sales.bills }} bills · profit <span class="text-green">₹{{ month_sales.profit|inr }}</span></div></div>
-  <div class="card stat"><span class="chip amber">{{ icon('package') }}</span><div class="label">This month's purchases</div><div class="value">₹{{ purchases_month|inr }}</div>
-    <div class="small muted">Expenses ₹{{ expenses_month|inr }}{% if today_sales.due > 0 %} · <span class="text-amber">credit today ₹{{ today_sales.due|inr }}</span>{% endif %}</div></div>
+<div class="page-head dash-head">
+  <div><h1>Dashboard</h1><div class="muted small">{{ store.store_name }} · {{ today.strftime('%A, %d %B %Y') }}</div></div>
+  <div class="row period-bar">
+    <div class="segmented" role="tablist">
+      {% for key, label in periods.items() %}<a role="tab" href="{{ url_for('reports.dashboard', period=key, on=period.start.isoformat()) }}" class="{{ 'on' if key == period.kind }}">{{ label }}</a>{% endfor %}
+    </div>
+    <div class="stepper">
+      <a class="btn secondary icon-only" href="{{ url_for('reports.dashboard', period=period.kind, on=period.previous.start.isoformat()) }}" aria-label="Previous" title="Previous">‹</a>
+      <span class="period-label">{{ period.label }}</span>
+      <a class="btn secondary icon-only" href="{{ url_for('reports.dashboard', period=period.kind, on=period.next.start.isoformat()) }}" aria-label="Next" title="Next">›</a>
+    </div>
+    {% if not period.contains_today() %}<a class="btn secondary" href="{{ url_for('reports.dashboard', period=period.kind) }}">Today</a>{% endif %}
+    {% if current_user.can('sales') %}<a class="btn" href="{{ url_for('sales.pos') }}">{{ icon('plus') }} New bill</a>{% endif %}
+  </div>
 </div>
-<div class="grid cols-2">
+
+<div class="grid cols-4 kpis">
+  <div class="card kpi">
+    <div class="kpi-top"><span class="label">Sales</span>{{ delta(sales_change) }}</div>
+    <div class="kpi-value">₹{{ sales.net|inr }}</div>
+    <div class="small muted">{{ sales.bills }} bill{{ '' if sales.bills == 1 else 's' }}{% if sales.bills %} · avg ₹{{ sales.avg|inr }}{% endif %}{% if sales.returns %} · {{ sales.returns }} return{{ '' if sales.returns == 1 else 's' }}{% endif %}</div>
+    {{ split('Received', sales.paid, 'On credit', sales.due) }}
+  </div>
+  <div class="card kpi">
+    <div class="kpi-top"><span class="label">Gross profit</span>{{ delta(profit_change) }}</div>
+    <div class="kpi-value {{ 'text-red' if sales.profit < 0 }}">₹{{ sales.profit|inr }}</div>
+    <div class="small muted">{% if sales.net > 0 %}Margin {{ '%.1f'|format(sales.profit / sales.net * 100) }}%{% else %}No sales yet{% endif %}
+      {%- if expenses.total %} · after expenses {{ '−' if sales.profit < expenses.total }}₹{{ (sales.profit - expenses.total)|abs|inr }}{% endif %}</div>
+    {% set margin = ((sales.profit / sales.net * 100) if sales.net > 0 else 0)|float %}
+    <div class="meter" aria-hidden="true"><i style="width:{{ [[margin, 0]|max, 100]|min }}%"></i></div>
+    <div class="split-legend"><span>of every ₹100 sold, ₹{{ '%.0f'|format([margin, 0]|max) }} is profit</span></div>
+  </div>
+  <div class="card kpi">
+    <div class="kpi-top"><span class="label">Purchases</span></div>
+    <div class="kpi-value">₹{{ purchases.net|inr }}</div>
+    <div class="small muted">{{ purchases.bills }} purchase bill{{ '' if purchases.bills == 1 else 's' }}</div>
+    {{ split('Paid', purchases.paid, 'Due', purchases.due) }}
+  </div>
+  <div class="card kpi">
+    <div class="kpi-top"><span class="label">Expenses</span>{{ delta(expenses_change, up_is_good=False) }}</div>
+    <div class="kpi-value">₹{{ expenses.total|inr }}</div>
+    <div class="small muted">{{ expenses.count }} entr{{ 'y' if expenses.count == 1 else 'ies' }}</div>
+    <div class="split-legend dues">
+      <a href="{{ url_for('reports.dues') }}"><span class="label">To collect</span><b>₹{{ receivable.total|inr }}</b><span class="muted">{{ receivable.people }} customer{{ '' if receivable.people == 1 else 's' }}</span></a>
+      <a href="{{ url_for('reports.dues') }}"><span class="label">To pay</span><b>₹{{ payable.total|inr }}</b><span class="muted">{{ payable.people }} supplier{{ '' if payable.people == 1 else 's' }}</span></a>
+    </div>
+  </div>
+</div>
+
+<div class="grid dash-main">
+  <div class="card chart-card">
+    <div class="chart-head"><div><h2>Sales trend</h2><div class="small muted">{{ {'day': 'By hour', 'week': 'By day', 'month': 'By day', 'year': 'By month'}[period.kind] }} · gray line is {{ period.compared_to.replace('the same time ', '') }}</div></div>
+      <div class="legend"><span><i class="line"></i>{{ period.label }}</span><span><i class="line gray"></i>{{ period.previous.label }}</span></div></div>
+    <div class="viz" data-chart="area" data-values='{{ charts.trend|tojson }}'></div>
+  </div>
+  <div class="card chart-card">
+    <div class="chart-head"><div><h2>Payment modes</h2><div class="small muted">How customers paid</div></div></div>
+    <div class="viz" data-chart="donut" data-values='{{ {"title": "Payment modes", "caption": "Sales", "items": charts.modes, "empty": "No sales in this period."}|tojson }}'></div>
+  </div>
+</div>
+
+<div class="grid cols-3">
+  <div class="card chart-card">
+    <div class="chart-head"><div><h2>Top products</h2><div class="small muted">By sales amount</div></div><a class="small" href="{{ url_for('reports.products', **{'from': period.start.isoformat(), 'to': period.last.isoformat()}) }}">All</a></div>
+    <div class="viz" data-chart="bars" data-values='{{ {"items": charts.products, "empty": "No sales in this period."}|tojson }}'></div>
+  </div>
+  <div class="card chart-card">
+    <div class="chart-head"><div><h2>Top expenses</h2><div class="small muted">By category</div></div>{% if current_user.can('cash') %}<a class="small" href="{{ url_for('cash.index') }}">Add</a>{% endif %}</div>
+    <div class="viz" data-chart="donut" data-values='{{ {"title": "Top expenses", "caption": "Spent", "items": charts.expenses, "empty": "No expenses in this period."}|tojson }}'></div>
+  </div>
+  <div class="card">
+    <div class="chart-head"><h2>Recent bills</h2>{% if current_user.can('sales') %}<a class="small" href="{{ url_for('sales.sales_list') }}">All</a>{% endif %}</div>
+    {% for s in recent %}<div class="list-row"><a href="{{ url_for('sales.bill', sale_id=s.id) }}">{{ s.title }}</a><span class="muted">{{ s.customer_name }}</span><span class="spacer"></span><b>₹{{ s.net|inr }}</b><span class="muted time">{{ s.created_at.strftime('%I:%M %p') }}</span></div>
+    {% else %}<p class="muted small">No bills yet.</p>{% endfor %}
+  </div>
+</div>
+
+<div class="grid cols-3">
+  <div class="card">
+    <div class="chart-head"><h2>Low stock {% if low_count %}<span class="badge bad">{{ low_count }}</span>{% endif %}</h2>{% if low_count > low_stock|length %}<a class="small" href="{{ url_for('reports.stock', low=1) }}">All {{ low_count }}</a>{% endif %}</div>
+    {% for p in low_stock %}<div class="list-row"><span>{{ p.name }}</span><span class="spacer"></span><span class="badge bad">{{ p.stock|qty }} / {{ p.min_stock|qty }}</span></div>
+    {% else %}<p class="muted small">Nothing below its alert level. Set "Low-stock alert at" on products to use this.</p>{% endfor %}
+  </div>
+  <div class="card">
+    <div class="chart-head"><h2>Expiring in 30 days</h2><a class="small" href="{{ url_for('reports.expiry') }}">Report</a></div>
+    {% for b in expiring %}<div class="list-row"><span>{{ b.product.name }} <span class="muted">{{ b.batch_no or '' }}</span></span><span class="spacer"></span>
+      <span class="badge {{ 'bad' if b.expiry < today else 'warn' }}">{{ b.expiry.strftime('%d %b') }} · {{ b.qty|qty }}</span></div>
+    {% else %}<p class="muted small">Nothing expiring soon.</p>{% endfor %}
+  </div>
   <div class="card">
     <h2>Reports</h2>
-    {% for endpoint, title, desc in reports %}
-    <div style="padding:.45rem 0;border-bottom:1px solid var(--line)"><a href="{{ url_for(endpoint) }}"><b>{{ title }}</b></a><div class="small muted">{{ desc }}</div></div>
-    {% endfor %}
-  </div>
-  <div>
-    <div class="card">
-      <h2>Low stock {% if low_count %}<span class="badge bad">{{ low_count }}</span>{% endif %}</h2>
-      {% for p in low_stock %}<div class="row spread small" style="padding:.2rem 0"><span>{{ p.name }}</span><span class="badge bad">{{ p.stock|qty }} / {{ p.min_stock|qty }}</span></div>
-      {% else %}<p class="muted small">Nothing below its alert level. Set "Low-stock alert at" on products to use this.</p>{% endfor %}
-      {% if low_count > low_stock|length %}<a class="small" href="{{ url_for('reports.stock', low=1) }}">See all {{ low_count }}</a>{% endif %}
-    </div>
-    {% if expiring %}
-    <div class="card">
-      <h2>Expiring in 30 days</h2>
-      {% for b in expiring %}<div class="row spread small" style="padding:.2rem 0"><span>{{ b.product.name }} <span class="muted">{{ b.batch_no or '' }}</span></span>
-        <span class="badge {{ 'bad' if b.expiry < today else 'warn' }}">{{ b.expiry.strftime('%d %b') }} · {{ b.qty|qty }}</span></div>{% endfor %}
-      <a class="small" href="{{ url_for('reports.expiry') }}">Expiry report</a>
-    </div>
-    {% endif %}
-    <div class="card">
-      <h2>Recent bills</h2>
-      {% for s in recent %}<div class="row spread small" style="padding:.2rem 0"><a href="{{ url_for('sales.bill', sale_id=s.id) }}">{{ s.title }} · {{ s.customer_name }}</a><span>₹{{ s.net|inr }} · {{ s.created_at.strftime('%I:%M %p') }}</span></div>
-      {% else %}<p class="muted small">No bills yet.</p>{% endfor %}
-    </div>
+    <div class="report-links">{% for endpoint, title, desc in reports %}<a href="{{ url_for(endpoint) }}" title="{{ desc }}">{{ title }}</a>{% endfor %}</div>
   </div>
 </div>
 {% endblock %}
