@@ -93,7 +93,7 @@ https.
 1. **DNS:** at your domain provider add an **A record**: name `billing`, value = the server's IP address. Wait until
    `ping billing.example.com` shows that IP.
 2. **Check ports 80 and 443 are free:** `ss -ltnp | grep -E ':(80|443) '`. If nginx or Apache already uses them,
-   add the domain there instead (see "Already have nginx" below).
+   add the domain there instead (see "Already have nginx or Apache" below).
 3. **Install [Caddy](https://caddyserver.com)** (one file; gets and renews the Let's Encrypt certificate by itself):
 
    ```bash
@@ -115,10 +115,16 @@ https.
    `https://billing.example.com` and keeps the login cookie https-only. `HOST=127.0.0.1` closes the plain-http port
    to the internet; you can also remove it from the firewall (`firewall-cmd --remove-port=5010/tcp --permanent`).
 
-**Already have nginx?** Add a server block and get the certificate with certbot:
+**Already have nginx or Apache** on ports 80/443 (`ss -ltnp | grep -E ':(80|443) '` shows which)? Add the domain
+there instead of installing Caddy. On CentOS/RHEL first allow the web server to connect to the app (SELinux blocks it
+otherwise and you get "502 Bad Gateway" / "503 Service Unavailable"):
+`setsebool -P httpd_can_network_connect 1`.
+
+*nginx:* `/etc/nginx/conf.d/billing.conf`
 
 ```nginx
 server {
+    listen 80;
     server_name billing.example.com;
     client_max_body_size 20m;
     location / {
@@ -130,7 +136,23 @@ server {
 }
 ```
 
-then `certbot --nginx -d billing.example.com`, and run the app as in step 4.
+then `nginx -t && systemctl reload nginx` and `certbot --nginx -d billing.example.com`.
+
+*Apache:* `/etc/httpd/conf.d/billing.conf` (Ubuntu: `/etc/apache2/sites-available/billing.conf`, then
+`a2enmod proxy proxy_http headers && a2ensite billing`)
+
+```apache
+<VirtualHost *:80>
+    ServerName billing.example.com
+    ProxyPreserveHost On
+    RequestHeader set X-Forwarded-Proto expr=%{REQUEST_SCHEME}
+    ProxyPass / http://127.0.0.1:5010/
+    ProxyPassReverse / http://127.0.0.1:5010/
+</VirtualHost>
+```
+
+then `apachectl configtest && systemctl reload httpd` and `certbot --apache -d billing.example.com` (certbot copies
+these lines into the https site it creates). Run the app as in step 4.
 
 ## Run on the shop PC
 
