@@ -1,8 +1,8 @@
 import os
 import tempfile
 
-from flask import (Blueprint, Response, abort, current_app, flash, g, redirect, render_template, request, send_file,
-                   url_for)
+from flask import (Blueprint, Response, abort, current_app, flash, g, jsonify, redirect, render_template, request,
+                   send_file, url_for)
 from sqlalchemy.exc import IntegrityError
 
 from ..backup import BackupError, default_folder, run_backup, write_backup
@@ -35,7 +35,10 @@ def index(section="store"):
     if section == "gst":
         context["slabs"] = TaxSlab.query.order_by(TaxSlab.rate).all()
     elif section == "shop":
-        context["shop_url"] = url_for("shop.login", _external=True)
+        from ..ai import DEFAULT_MODEL
+
+        context["shop_url"] = url_for("shop.catalog" if Setting.get().shop_public else "shop.login", _external=True)
+        context["default_model"] = DEFAULT_MODEL
         context["approved"] = Party.query.filter_by(kind="customer", shop_access=True).order_by(Party.name).all()
     elif section == "backup":
         context["default_backup_dir"] = default_folder(current_app)
@@ -79,9 +82,44 @@ def save_shop():
         log("settings", f"Online shop {'opened' if enabled else 'closed'}")
     store.shop_enabled, store.shop_min_order = enabled, minimum
     store.shop_note = request.form.get("shop_note", "").strip() or None
+    public = request.form.get("shop_public") == "1"
+    if public != store.shop_public:
+        log("settings", f"Online shop SEO mode {'on' if public else 'off'}")
+    store.shop_public = public
+    if "shop_seo_title" in request.form:
+        store.shop_seo_title = request.form.get("shop_seo_title", "").strip()[:80] or None
+        store.shop_seo_description = " ".join(request.form.get("shop_seo_description", "").split())[:200] or None
     db.session.commit()
     flash("Online shop settings saved.", "success")
     return _back("shop")
+
+
+@bp.route("/ai", methods=["POST"])
+def save_ai():
+    _admin_only()
+    store = Setting.get()
+    key = request.form.get("gemini_api_key", "").strip()
+    if request.form.get("remove_key") == "1":
+        store.gemini_api_key = None
+        log("settings", "Gemini key removed")
+    elif key:
+        store.gemini_api_key = key
+        log("settings", "Gemini key saved")
+    store.gemini_model = request.form.get("gemini_model", "").strip()[:80] or None
+    db.session.commit()
+    flash("AI writing settings saved.", "success")
+    return _back("shop")
+
+
+@bp.route("/ai/models", methods=["POST"])
+def ai_models():
+    _admin_only()
+    from ..ai import AIError, list_models
+
+    try:
+        return jsonify(models=list_models(Setting.get().gemini_api_key or ""))
+    except AIError as e:
+        return jsonify(error=str(e)), 502
 
 
 @bp.route("/slabs", methods=["POST"])

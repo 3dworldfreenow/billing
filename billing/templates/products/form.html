@@ -49,6 +49,29 @@
     </div>
     <label class="check"><input type="checkbox" name="online" value="1" {{ 'checked' if product.online is none or product.online }}> Show in the online shop</label>
   </div>
+  <details class="seo-box" {{ 'open' if product.description or product.seo_title or store.shop_public }}>
+    <summary><b>Online shop page &amp; Google search</b> <span class="muted small">description, title, address</span></summary>
+    <div class="row spread" style="align-items:center;margin-top:8px">
+      <p class="small muted" style="margin:0">Leave empty to use the product name. Good text helps people find this product on Google.</p>
+      {% if store.gemini_api_key %}<button type="button" class="secondary" data-ai-write="{{ url_for('products.ai_write') }}">✨ Write with AI</button>
+      {% elif current_user.can('settings') %}<a class="small" href="{{ url_for('settings.index', section='shop') }}">Add a Gemini key to write this with AI</a>{% endif %}
+    </div>
+    <label for="description">Description (shown on the product page)</label>
+    <textarea id="description" name="description" rows="4" placeholder="What it is, size/flavour, how it's used…">{{ product.description or '' }}</textarea>
+    <div class="grid cols-2">
+      <div><label for="seo_title">Google title <span class="muted small" data-count="seo_title" data-max="60"></span></label>
+        <input id="seo_title" name="seo_title" maxlength="80" value="{{ product.seo_title or '' }}" placeholder="{{ (product.name or 'Product name') ~ ' – ' ~ store.store_name }}"></div>
+      <div><label for="slug">Web address</label>
+        <div class="slug-field"><span class="muted small">/shop/p/{{ product.id or 'N' }}-</span><input id="slug" name="slug" value="{{ product.slug or '' }}" placeholder="{{ product.url_slug if product.name else 'amul-butter-500g' }}"></div></div>
+    </div>
+    <label for="seo_description">Google description <span class="muted small" data-count="seo_description" data-max="155"></span></label>
+    <textarea id="seo_description" name="seo_description" rows="2" maxlength="200" placeholder="One or two lines that appear under the title in Google">{{ product.seo_description or '' }}</textarea>
+    <div class="serp" aria-label="How it may look on Google">
+      <div class="serp-url">{{ request.host }} › shop › {{ product.url_slug if product.name else 'product' }}</div>
+      <div class="serp-title" data-preview="seo_title">{{ product.seo_title or ((product.name or 'Product name') ~ ' – ' ~ store.store_name) }}</div>
+      <div class="serp-desc" data-preview="seo_description">{{ product.seo_description or 'Your Google description appears here.' }}</div>
+    </div>
+  </details>
   <div class="row" style="margin-top:1rem">
     <button>Save</button>
     {% if not request.args.get('add_to') %}<button class="secondary" name="next" value="new">Save &amp; add another</button>{% endif %}
@@ -77,4 +100,48 @@
 </form>
 {% endif %}
 {% endblock %}
-{% block scripts %}{{ camera_script() }}{% endblock %}
+{% block scripts %}{{ camera_script() }}
+<script>
+(() => {
+  const form = document.querySelector('.seo-box')?.closest('form');
+  if (!form) return;
+  const field = (name) => form.querySelector(`[name="${name}"]`);
+  const store = {{ store.store_name|tojson }};
+  const fallback = { seo_title: () => `${field('name').value || 'Product name'} – ${store}`,
+                     seo_description: () => 'Your Google description appears here.' };
+  function refresh() {
+    form.querySelectorAll('[data-count]').forEach((el) => {
+      const n = field(el.dataset.count).value.length, max = +el.dataset.max;
+      el.textContent = n ? `${n}/${max}` : '';
+      el.classList.toggle('text-red', n > max);
+    });
+    form.querySelectorAll('[data-preview]').forEach((el) => {
+      el.textContent = field(el.dataset.preview).value || fallback[el.dataset.preview]();
+    });
+  }
+  form.addEventListener('input', refresh);
+  refresh();
+  const button = form.querySelector('[data-ai-write]');
+  if (!button) return;
+  button.addEventListener('click', async () => {
+    const label = button.textContent;
+    button.disabled = true; button.textContent = 'Writing…';
+    try {
+      const body = new FormData();
+      ['name', 'brand', 'category', 'unit', 'mrp', 'sale_rate', 'description'].forEach((k) => body.append(k, field(k)?.value || ''));
+      const res = await fetch(button.dataset.aiWrite, { method: 'POST', body, credentials: 'same-origin' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Something went wrong.');
+      ['description', 'seo_title', 'seo_description', 'slug'].forEach((k) => { if (data[k]) field(k).value = data[k]; });
+      refresh();
+      button.textContent = '✓ Done. Check it, then Save';
+      setTimeout(() => { button.textContent = label; }, 4000);
+    } catch (e) {
+      alert(e.message);
+      button.textContent = label;
+    } finally {
+      button.disabled = false;
+    }
+  });
+})();
+</script>{% endblock %}

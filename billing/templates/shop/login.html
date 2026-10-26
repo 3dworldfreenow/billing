@@ -8,5 +8,6 @@
   <label for="password">Password</label><input id="password" type="password" name="password" autocomplete="current-password" required>
   <button class="big" style="width:100%;margin-top:14px">Log in</button>
   <p class="small muted" style="text-align:center;margin-bottom:0">No account? Ask at the shop{% if store.phone %}: <a href="tel:{{ store.phone }}">{{ store.phone }}</a>{% endif %}.</p>
+  {% if public %}<p class="small" style="text-align:center;margin:8px 0 0"><a href="{{ url_for('shop.catalog') }}">← Continue shopping</a></p>{% endif %}
 </form>
 {% endblock %}

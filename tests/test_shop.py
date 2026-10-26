@@ -1,4 +1,5 @@
 import io
+import json
 from decimal import Decimal
 
 from PIL import Image
@@ -163,3 +164,102 @@ def test_shop_settings_and_staff_pages(client):
     assert b"Delivery 10-8" in client.get("/shop/").data
     for url in ["/settings/shop", "/orders/", "/orders/?show=delivered", "/shop/cart", "/products/new"]:
         assert client.get(url).status_code == 200, url
+
+
+# --- SEO mode, product pages and AI writing --------------------------------------------------
+
+
+def seo_mode():
+    store = Setting.get()
+    store.shop_enabled = store.shop_public = True
+    db.session.commit()
+
+
+def test_seo_mode_lets_visitors_browse_but_order_needs_login(app, client):
+    customer(client)
+    anon = app.test_client()
+    assert anon.get("/shop/").headers["Location"].endswith("/shop/login")  # off: login first
+    assert b"Disallow: /\n" == anon.get("/robots.txt").data.split(b"User-agent: *\n")[1]
+    seo_mode()
+    page = anon.get("/shop/").data.decode()
+    assert "Medimix Soap" in page and 'rel="canonical"' in page and "noindex" not in page
+    assert anon.get("/").headers["Location"].endswith("/shop/")  # the domain opens the shop
+    soap = Product.query.filter_by(barcode=SOAP).one()
+    anon.post("/shop/cart/add", data={"product_id": soap.id, "qty": "2"})
+    anon.post("/shop/cart/add", data={"product_id": soap.id, "qty": "1"})
+    cart = anon.get("/shop/cart").data.decode()
+    assert "₹126.00" in cart and "Log in to place order" in cart and "noindex" in cart
+    resp = anon.post("/shop/cart", data={f"qty_{soap.id}": "3", "action": "place"})
+    assert "/shop/login?next=" in resp.headers["Location"] and Order.query.count() == 0
+    # Logging in brings the cart along; then the normal order flow applies.
+    resp = anon.post("/shop/login?next=/shop/cart", data={"phone": "9876543210", "password": "ram12345"})
+    assert resp.headers["Location"].endswith("/shop/cart")
+    order = Order.query.filter_by(status="cart").one()
+    assert [(i.name, i.qty) for i in order.items] == [("Medimix Soap 125g", 3)]
+    anon.post("/shop/cart", data={"address": "Home", "action": "place"})
+    assert order.status == "new"
+
+
+def test_product_page_seo_tags_and_sitemap(app, client):
+    seo_mode()
+    soap = Product.query.filter_by(barcode=SOAP).one()
+    soap.brand, soap.description = "Medimix", "Ayurvedic soap.\nWith 18 herbs."
+    soap.seo_title, soap.seo_description = "Medimix Soap 125g – P MART", "Buy Medimix soap online."
+    db.session.commit()
+    anon = app.test_client()
+    resp = anon.get(f"/shop/p/{soap.id}")
+    assert resp.status_code == 301 and resp.headers["Location"].endswith(f"/shop/p/{soap.id}-medimix-soap-125g")
+    page = anon.get(f"/shop/p/{soap.id}-medimix-soap-125g").data.decode()
+    assert "<title>Medimix Soap 125g – P MART</title>" in page
+    assert 'name="description" content="Buy Medimix soap online."' in page and "<p>With 18 herbs.</p>" in page
+    data = json.loads(page.split('<script type="application/ld+json">')[1].split("</script>")[0])
+    assert data["offers"]["price"] == "42.00" and data["gtin13"] == SOAP and data["brand"]["name"] == "Medimix"
+    soap.online = False
+    db.session.commit()
+    assert anon.get(f"/shop/p/{soap.id}-medimix-soap-125g").status_code == 404
+    sitemap = anon.get("/sitemap.xml").data.decode()
+    assert "/shop/p/2-tata-salt-1kg" in sitemap and "medimix" not in sitemap
+    assert "Sitemap: http://localhost/sitemap.xml" in anon.get("/robots.txt").data.decode()
+
+
+def test_product_form_saves_seo_fields(client):
+    soap = Product.query.filter_by(barcode=SOAP).one()
+    form = {"name": soap.name, "barcode": SOAP, "mrp": "45", "sale_rate": "42", "purchase_rate": "30",
+            "gst_rate": "18", "stock": "10", "online": "1", "description": " Good soap ",
+            "seo_title": "Soap", "seo_description": "Buy  soap\n now", "slug": "Medimix Soap!"}
+    client.post(f"/products/{soap.id}", data=form)
+    assert (soap.description, soap.seo_title, soap.seo_description, soap.slug) == (
+        "Good soap", "Soap", "Buy soap now", "medimix-soap")
+    assert "Write with AI" not in client.get(f"/products/{soap.id}").data.decode()
+
+
+def test_ai_write_and_model_list(client, monkeypatch):
+    import billing.ai as ai
+
+    sent = []
+
+    def fake_request(url, key, body=None, timeout=45):
+        sent.append((url, key, body))
+        if url.endswith("/models?pageSize=1000"):
+            return {"models": [{"name": "models/gemini-3.8-flash", "supportedGenerationMethods": ["generateContent"]},
+                               {"name": "models/text-embedding-9", "supportedGenerationMethods": ["embedContent"]}]}
+        answer = {"seo_title": "Tata Salt 1kg – P MART", "seo_description": "Iodised salt.", "slug": "Tata Salt 1 KG",
+                  "description": "Tata Salt is iodised salt."}
+        return {"candidates": [{"content": {"parts": [{"text": json.dumps(answer)}]}}]}
+
+    monkeypatch.setattr(ai, "_request", fake_request)
+    assert client.post("/products/ai-write", data={"name": "Tata Salt"}).get_json()["error"].startswith("Add a Gemini")
+    client.post("/settings/ai", data={"gemini_api_key": "key-123", "gemini_model": ""})
+    assert Setting.get().gemini_api_key == "key-123"
+    assert "Write with AI" in client.get("/products/new").data.decode()
+    assert client.post("/settings/ai/models").get_json() == {"models": ["gemini-3.8-flash"]}
+    result = client.post("/products/ai-write", data={"name": "Tata Salt 1kg", "brand": "Tata"}).get_json()
+    assert result["slug"] == "tata-salt-1-kg" and result["seo_title"] == "Tata Salt 1kg – P MART"
+    url, key, body = sent[-1]
+    assert url.endswith("/models/gemini-3.8-flash:generateContent") and key == "key-123"
+    prompt = body["contents"][0]["parts"][0]["text"]
+    assert "- Name: Tata Salt 1kg" in prompt and "- Brand: Tata" in prompt and "Category" not in prompt
+    client.post("/settings/ai", data={"gemini_api_key": "", "gemini_model": "x", "remove_key": "1"})
+    assert Setting.get().gemini_api_key is None
+    page = client.get("/settings/shop").data.decode()
+    assert "key-123" not in page and "SEO mode" in page

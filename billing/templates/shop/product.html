@@ -1,0 +1,49 @@
+{% extends "shop/base.html" %}
+{% set indexable = true %}
+{% set rate = price(product) %}
+{% block page_title %}{{ product.seo_title or (product.name ~ ' – ' ~ store.store_name) }}{% endblock %}
+{% block description %}{{ product.seo_description or (product.description|truncate(155, True, '…') if product.description else ('Buy ' ~ product.name ~ ' online at ₹' ~ (rate|inr) ~ ' from ' ~ store.store_name ~ '. Order now for home delivery.')) }}{% endblock %}
+{% block canonical %}{{ url_for('shop.product', product_id=product.id, slug=product.url_slug, _external=True) }}{% endblock %}
+{% block og %}<meta property="og:type" content="product">
+  {% if product.image %}<meta property="og:image" content="{{ url_for('shop.media', name=product.image, _external=True) }}">{% endif %}{% endblock %}
+{% block head %}
+{% if public %}
+<script type="application/ld+json">{{ structured_data(product)|tojson }}</script>
+{% endif %}
+{% endblock %}
+{% block content %}
+<nav class="crumbs small"><a href="{{ url_for('shop.catalog') }}">All products</a>{% if product.category %} › <a href="{{ url_for('shop.catalog', category=product.category) }}">{{ product.category|title }}</a>{% endif %}</nav>
+<div class="pdp">
+  <div class="pdp-pic pic">{% if product.image %}<img src="{{ url_for('shop.media', name=product.image) }}" alt="{{ product.name }}">{% else %}<span>{{ icon('package', 64) }}</span>{% endif %}
+    {% if product.mrp > rate %}<span class="off">{{ ((product.mrp - rate) * 100 / product.mrp)|round|int }}% off</span>{% endif %}</div>
+  <div class="pdp-info">
+    {% if product.brand %}<div class="muted small">{{ product.brand }}</div>{% endif %}
+    <h1>{{ product.name }}</h1>
+    <div class="pdp-price"><b>₹{{ rate|inr }}</b>{% if product.mrp > rate %} <s>MRP ₹{{ product.mrp|inr }}</s> <span class="text-green small">You save ₹{{ (product.mrp - rate)|inr }}</span>{% endif %}
+      {% if product.unit != 'pcs' %}<span class="muted small"> / {{ product.unit }}</span>{% endif %}</div>
+    <div class="small muted">Inclusive of all taxes</div>
+    {% if product.stock <= 0 %}<p><span class="badge">Out of stock</span></p>
+    {% else %}
+    <form method="post" action="{{ url_for('shop.add') }}" class="addrow pdp-add">
+      <input type="hidden" name="product_id" value="{{ product.id }}"><input type="hidden" name="next" value="{{ request.path }}">
+      <input name="qty" type="number" min="{{ '0.25' if product.unit in ('kg', 'ltr') else '1' }}" step="{{ '0.25' if product.unit in ('kg', 'ltr') else '1' }}" value="1" aria-label="Quantity">
+      <button {{ 'disabled title="Preview"' if preview }}>{{ icon('cart', 15) }} Add to cart</button>
+    </form>
+    {% if in_cart %}<div class="small text-green">{{ icon('check', 13) }} {{ in_cart|qty }} in your cart · <a href="{{ url_for('shop.cart') }}">View cart</a></div>{% endif %}
+    {% endif %}
+    {% if product.description %}<div class="pdp-desc">{% for para in product.description.split('\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>{% endif %}
+    {% if guest %}<p class="small muted">Ordering is for registered customers. Fill your cart now; you'll be asked to log in at checkout.{% if store.phone %} New customer? Call <a href="tel:{{ store.phone }}">{{ store.phone }}</a>.{% endif %}</p>{% endif %}
+  </div>
+</div>
+{% if related %}
+<h2 style="margin:18px 0 8px">More in {{ product.category|title }}</h2>
+<div class="products">
+  {% for p in related %}{% set r = price(p) %}
+  <a class="product" href="{{ url_for('shop.product', product_id=p.id, slug=p.url_slug) }}">
+    <div class="pic">{% if p.image %}<img src="{{ url_for('shop.media', name=p.image) }}" alt="{{ p.name }}" loading="lazy">{% else %}<span>{{ icon('package', 40) }}</span>{% endif %}</div>
+    <div class="info"><div class="pname">{{ p.name }}</div><div class="pprice"><b>₹{{ r|inr }}</b></div></div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

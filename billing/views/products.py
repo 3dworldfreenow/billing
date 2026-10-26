@@ -1,10 +1,10 @@
 from decimal import Decimal
 
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, session, url_for
 from sqlalchemy.exc import IntegrityError
 
 from ..exporting import cell_text, export_response, map_columns, read_rows
-from ..models import D, Product, Promotion, Purchase, PurchaseItem, Sale, SaleItem, TaxSlab, db
+from ..models import D, Product, Promotion, Purchase, PurchaseItem, Sale, SaleItem, Setting, TaxSlab, db, slugify
 from ..services import BillError, find_products, generate_barcode, log, parse_decimal, product_query
 
 bp = Blueprint("products", __name__, url_prefix="/products")
@@ -131,6 +131,11 @@ def _fill(product, form):
         setattr(product, field, form.get(field, "").strip() or None)
     product.unit = form.get("unit", "pcs").strip() or "pcs"
     product.online = form.get("online") == "1"
+    product.description = form.get("description", "").strip() or None
+    product.seo_title = form.get("seo_title", "").strip()[:80] or None
+    product.seo_description = " ".join(form.get("seo_description", "").split())[:200] or None
+    slug = form.get("slug", "").strip()
+    product.slug = slugify(slug) if slug else None
     if not product.name:
         return "Name is required."
     for field in NUMERIC:
@@ -356,3 +361,26 @@ def labels_print():
             labels += [(product, svg)] * min(copies, 1000)
     show_price = request.args.get("price", "1") == "1"
     return render_template("products/labels_print.html", labels=labels, layout=layout, show_price=show_price)
+
+
+@bp.route("/ai-write", methods=["POST"])
+def ai_write():
+    """Ask Gemini for a description and SEO text from the details typed in the product form."""
+    from ..ai import AIError, write_product
+
+    store = Setting.get()
+    form = request.form
+    if not form.get("name", "").strip():
+        return jsonify(error="Type the product name first."), 400
+    fields = {"Name": form.get("name"), "Brand": form.get("brand"), "Category": form.get("category"),
+              "Sold per": form.get("unit"), "MRP (Rs)": form.get("mrp"), "Our price (Rs)": form.get("sale_rate"),
+              "Notes from the shop": form.get("description")}
+    try:
+        result = write_product(store.gemini_api_key, store.gemini_model, store.store_name,
+                               {k: (v or "").strip() for k, v in fields.items()})
+    except AIError as e:
+        return jsonify(error=str(e)), 502
+    result["slug"] = slugify(result["slug"] or form.get("name"))
+    log("ai write", form.get("name", "")[:80])
+    db.session.commit()
+    return jsonify(result)

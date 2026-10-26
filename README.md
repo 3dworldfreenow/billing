@@ -54,6 +54,17 @@ delivered; the customer sees each step. While the shop is closed (e.g. on the of
 preview it. Product photos are shrunk automatically and stored in `instance/uploads` (copy that folder along with
 your backups).
 
+**SEO mode** (Settings → Online shop, online copy only): anyone, including Google, can browse the shop, open product
+pages and fill a cart; placing the order still needs an approved login (the cart moves into their account when they
+log in). Each product gets its own page (`/shop/p/12-amul-butter-500g`) with page title, description, price and stock
+for Google (schema.org data), plus `/sitemap.xml` and `/robots.txt`; visitors to your domain land in the shop and
+staff log in at `/login`. Product form → **Online shop page & Google search**: description, Google title and
+description (with a preview of the Google result) and web address.
+
+**AI writing (Google Gemini)**: paste a free API key from aistudio.google.com in Settings → Online shop (admin), and
+products get a **Write with AI** button that drafts the description and Google text from the name, brand and
+category. Check the text, then save. **Load models** lists the models your key can use.
+
 **Data safety**: automatic backups, **export all data** to one Excel file and download a database backup (then upload
 them to Google Drive yourself).
 

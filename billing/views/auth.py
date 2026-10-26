@@ -31,11 +31,16 @@ def load_user():
     g.user = db.session.get(User, user_id) if user_id else None
     if g.user is not None and not g.user.active:
         g.user = None
-    if request.blueprint in ("shop", "public"):
+    if request.blueprint in ("shop", "public", "seo"):
         return None  # customers have their own login; staff are only looked up (admin preview)
     if g.user is None:
         if User.query.first() is None:
             return redirect(url_for("auth.setup"))
+        if request.path == "/":
+            from .shop import is_public
+
+            if is_public():  # SEO mode: visitors to the domain land in the shop, staff use /login
+                return redirect(url_for("shop.catalog"))
         return redirect(url_for("auth.login", next=request.full_path if request.method == "GET" else None))
     permission = BLUEPRINT_PERMISSION.get(request.blueprint)
     if permission and not g.user.can(permission):

@@ -5,6 +5,15 @@
     <h2>Online shop</h2>
     <label class="check"><input type="checkbox" name="shop_enabled" value="1" {{ 'checked' if store.shop_enabled }}> <b>Open the online shop</b> to approved customers</label>
     <p class="small muted">When it's closed (for example on the offline counter PC), customers can't log in and only the admin can browse the shop as a preview.</p>
+    <label class="check"><input type="checkbox" name="shop_public" value="1" {{ 'checked' if store.shop_public }}> <b>SEO mode:</b> anyone can browse, see prices and fill a cart</label>
+    <p class="small muted">Google can then list your products. Visitors still need an approved login to <b>place</b> an order; they're asked to log in (or call you) at checkout.</p>
+    <div {{ 'hidden' if not store.shop_public }} data-public-only>
+      <label for="shop_seo_title">Shop title on Google <span class="muted small">(about 60 letters)</span></label>
+      <input id="shop_seo_title" name="shop_seo_title" maxlength="80" value="{{ store.shop_seo_title or '' }}" placeholder="{{ store.store_name }} – Grocery &amp; daily needs, home delivery">
+      <label for="shop_seo_description">Shop description on Google <span class="muted small">(about 155 letters)</span></label>
+      <textarea id="shop_seo_description" name="shop_seo_description" rows="2" maxlength="200" placeholder="Order groceries, snacks and household items online from {{ store.store_name }}{{ ', ' ~ store.address if store.address }}.">{{ store.shop_seo_description or '' }}</textarea>
+      <p class="small muted">Search engines find your products through <code>{{ request.host_url }}sitemap.xml</code>.</p>
+    </div>
     <label for="shop_note">Message on the shop</label>
     <input id="shop_note" name="shop_note" value="{{ store.shop_note or '' }}" placeholder="e.g. Home delivery 10 am – 8 pm, within 3 km">
     <label for="shop_min_order">Minimum order (₹)</label>
@@ -24,4 +33,45 @@
     {% else %}<p class="muted small">No customer approved yet.</p>{% endfor %}
   </div>
 </div>
+
+{% if current_user.is_admin %}
+<form method="post" action="{{ url_for('settings.save_ai') }}" class="card" style="max-width:760px">
+  <h2>✨ AI writing (Google Gemini)</h2>
+  <p class="small muted">Adds a <b>Write with AI</b> button on products: it writes the description, Google title and description from the product's name, brand and category. You check the text before saving. Get a free API key at <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>.</p>
+  <div class="grid cols-2">
+    <div><label for="gemini_api_key">API key</label>
+      <input id="gemini_api_key" name="gemini_api_key" type="password" autocomplete="off" placeholder="{{ '•••••••• saved (leave empty to keep)' if store.gemini_api_key else 'Paste your Gemini API key' }}"></div>
+    <div><label for="gemini_model">Model</label>
+      <div class="row" style="flex-wrap:nowrap"><input id="gemini_model" name="gemini_model" list="gemini-models" value="{{ store.gemini_model or default_model }}">
+        <button type="button" class="secondary" data-load-models="{{ url_for('settings.ai_models') }}" {{ 'disabled title="Save a key first"' if not store.gemini_api_key }}>Load models</button></div>
+      <datalist id="gemini-models"></datalist></div>
+  </div>
+  <div class="row" style="align-items:center"><button>Save</button>
+    {% if store.gemini_api_key %}<label class="check"><input type="checkbox" name="remove_key" value="1"> Remove the saved key</label>{% endif %}</div>
+</form>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script>
+(() => {
+  const toggle = document.querySelector('[name=shop_public]');
+  toggle?.addEventListener('change', () => { document.querySelector('[data-public-only]').hidden = !toggle.checked; });
+  const button = document.querySelector('[data-load-models]');
+  button?.addEventListener('click', async () => {
+    button.disabled = true; button.textContent = 'Loading…';
+    try {
+      const res = await fetch(button.dataset.loadModels, { method: 'POST', credentials: 'same-origin' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      const list = document.getElementById('gemini-models');
+      list.replaceChildren(...data.models.map((m) => Object.assign(document.createElement('option'), { value: m })));
+      button.textContent = `${data.models.length} models`;
+      const input = document.getElementById('gemini_model');
+      input.value = ''; input.focus();
+    } catch (e) {
+      alert(e.message); button.textContent = 'Load models';
+    } finally { button.disabled = false; }
+  });
+})();
+</script>
 {% endblock %}

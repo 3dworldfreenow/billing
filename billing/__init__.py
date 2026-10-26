@@ -81,6 +81,7 @@ def create_app(config=None):
     from .views import (api, auth, cash, offers, orders, parties, products, public, purchases, reports, sales,
                         settings, shop, stock)
 
+    app.register_blueprint(public.seo)
     for module in (api, auth, cash, offers, orders, public, shop, sales, purchases, products, parties, stock, reports, settings):
         app.register_blueprint(module.bp)
     app.before_request(auth.load_user)

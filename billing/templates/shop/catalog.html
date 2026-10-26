@@ -1,5 +1,7 @@
 {% extends "shop/base.html" %}
-{% block title %}Products{% endblock %}
+{% set indexable = not q %}
+{% block page_title %}{% if category %}{{ category|title }} · {{ store.store_name }}{% else %}{{ store.shop_seo_title or (store.store_name ~ ' – Order groceries online') }}{% endif %}{% if page > 1 %} · page {{ page }}{% endif %}{% endblock %}
+{% block canonical %}{{ url_for('shop.catalog', category=category or None, page=page if page > 1 else None, _external=True) }}{% endblock %}
 {% block content %}
 {% if categories %}
 <div class="chips" role="navigation" aria-label="Categories">
@@ -7,15 +9,17 @@
   {% for c in categories %}<a href="{{ url_for('shop.catalog', category=c, q=q or None) }}" class="{{ 'on' if c == category }}">{{ c|title }}</a>{% endfor %}
 </div>
 {% endif %}
+<h1 class="shop-h1">{{ category|title if category else ('Results' if q else 'All products') }}</h1>
 <p class="muted small">{{ count }} product{{ 's' if count != 1 }}{% if q %} for “{{ q }}”{% endif %}</p>
 <div class="products">
   {% for p in products %}
   {% set rate = price(p) %}
   <div class="product">
-    <div class="pic">{% if p.image %}<img src="{{ url_for('shop.media', name=p.image) }}" alt="{{ p.name }}" loading="lazy">{% else %}<span>{{ icon('package', 40) }}</span>{% endif %}
-      {% if p.mrp > rate %}<span class="off">{{ ((p.mrp - rate) * 100 / p.mrp)|round|int }}% off</span>{% endif %}</div>
+    {% set link = url_for('shop.product', product_id=p.id, slug=p.url_slug) %}
+    <a class="pic" href="{{ link }}">{% if p.image %}<img src="{{ url_for('shop.media', name=p.image) }}" alt="{{ p.name }}" loading="lazy">{% else %}<span>{{ icon('package', 40) }}</span>{% endif %}
+      {% if p.mrp > rate %}<span class="off">{{ ((p.mrp - rate) * 100 / p.mrp)|round|int }}% off</span>{% endif %}</a>
     <div class="info">
-      <div class="pname">{{ p.name }}</div>
+      <a class="pname" href="{{ link }}">{{ p.name }}</a>
       <div class="pprice"><b>₹{{ rate|inr }}</b>{% if p.mrp > rate %} <s>₹{{ p.mrp|inr }}</s>{% endif %}{% if p.unit != 'pcs' %}<span class="muted small"> / {{ p.unit }}</span>{% endif %}</div>
       {% if p.stock <= 0 %}<span class="badge">Out of stock</span>
       {% else %}

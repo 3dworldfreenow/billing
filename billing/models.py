@@ -1,3 +1,4 @@
+import re
 from datetime import date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -27,6 +28,11 @@ def D(value):
 def money(value):
     return D(value).quantize(CENT, rounding=ROUND_HALF_UP)
 
+
+def slugify(text):
+    """Product name -> web address part: "Amul Butter 500g" -> "amul-butter-500g"."""
+    slug = re.sub(r"[^a-z0-9]+", "-", (text or "").lower()).strip("-")
+    return slug[:80].rstrip("-") or "item"
 
 class Setting(db.Model):
     """Store-wide settings; a single row with id 1, created at startup."""
@@ -72,6 +78,13 @@ class Setting(db.Model):
     shop_enabled = db.Column(db.Boolean, nullable=False, default=False)
     shop_note = db.Column(db.String(300))  # shown on the shop, e.g. delivery timings
     shop_min_order = db.Column(db.Numeric(12, 2), nullable=False, default=0)
+    # SEO mode: anyone (and Google) can browse and fill a cart; only approved customers order.
+    shop_public = db.Column(db.Boolean, nullable=False, default=False)
+    shop_seo_title = db.Column(db.String(80))
+    shop_seo_description = db.Column(db.String(200))
+    # Google Gemini, to help write product descriptions and SEO text.
+    gemini_api_key = db.Column(db.String(200))
+    gemini_model = db.Column(db.String(80))
 
     @classmethod
     def get(cls):
@@ -172,6 +185,15 @@ class Product(db.Model):
     min_stock = db.Column(db.Numeric(12, 3), nullable=False, default=0)
     image = db.Column(db.String(120))  # file name under instance/uploads/products
     online = db.Column(db.Boolean, nullable=False, default=True)  # listed in the online shop
+    # Online shop page and Google search (all optional; the name is used when empty)
+    description = db.Column(db.Text)
+    seo_title = db.Column(db.String(80))
+    seo_description = db.Column(db.String(200))
+    slug = db.Column(db.String(120))
+
+    @property
+    def url_slug(self):
+        return slugify(self.slug or self.name)
 
     batches = db.relationship("Batch", back_populates="product", order_by="Batch.id")
 

@@ -4,7 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <meta name="theme-color" content="#2370cf">
-  <title>{% block title %}Shop{% endblock %} · {{ store.store_name }}</title>
+  <title>{% block page_title %}{% block title %}Shop{% endblock %} · {{ store.store_name }}{% endblock %}</title>
+  {% if public and indexable and not customer %}
+  <meta name="description" content="{% block description %}{{ store.shop_seo_description or ('Order groceries and daily needs online from ' ~ store.store_name ~ (', ' ~ store.address if store.address else '') ~ '.') }}{% endblock %}">
+  <link rel="canonical" href="{% block canonical %}{{ request.base_url }}{% endblock %}">
+  <meta property="og:site_name" content="{{ store.store_name }}">
+  <meta property="og:title" content="{{ self.page_title() }}">
+  <meta property="og:description" content="{{ self.description() }}">
+  <meta property="og:url" content="{{ self.canonical() }}">
+  {% block og %}<meta property="og:type" content="website">{% endblock %}
+  {% else %}<meta name="robots" content="noindex">{% endif %}
+  {% block head %}{% endblock %}
   <link rel="preload" href="{{ url_for('static', filename='fonts/inter-latin.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ url_for('static', filename='app.css') }}">
 </head>
@@ -12,23 +22,25 @@
 <header class="shop-top">
   <div class="shop-bar">
     <a class="shop-brand" href="{{ url_for('shop.catalog') }}"><span class="chip brand">{{ icon('cart', 16) }}</span>{{ store.store_name }}</a>
-    {% if customer or preview %}
+    {% if customer or preview or guest %}
     <form class="shop-search" action="{{ url_for('shop.catalog') }}" role="search">
       {{ icon('search', 15) }}<input name="q" value="{{ request.args.get('q', '') }}" placeholder="Search products" aria-label="Search products">
     </form>
     <nav class="shop-nav">
       {% if customer %}<a href="{{ url_for('shop.orders') }}">{{ icon('bills') }}<span>Orders</span></a>{% endif %}
       <a href="{{ url_for('shop.cart') }}" class="cart-btn">{{ icon('cart') }}<span>Cart</span>{% if cart_count %}<b class="count">{{ cart_count }}</b>{% endif %}</a>
-      {% if customer %}<form method="post" action="{{ url_for('shop.logout') }}"><button class="link" title="Log out" aria-label="Log out">{{ icon('logout') }}</button></form>{% endif %}
+      {% if customer %}<form method="post" action="{{ url_for('shop.logout') }}"><button class="link" title="Log out" aria-label="Log out">{{ icon('logout') }}</button></form>
+      {% elif guest %}<a href="{{ url_for('shop.login', next=request.path) }}">{{ icon('user') }}<span>Log in</span></a>{% endif %}
     </nav>
     {% endif %}
   </div>
 </header>
 {% if preview %}<div class="preview-bar">Admin preview · the shop is <b>{{ 'open' if store.shop_enabled else 'closed' }}</b> for customers · <a href="{{ url_for('settings.index', section='shop') }}">Shop settings</a> · <a href="{{ url_for('orders.index') }}">Back to app</a></div>{% endif %}
 <main class="shop-main">
-  {% if store.shop_note and (customer or preview) %}<div class="shop-note">{{ icon('truck', 15) }} {{ store.shop_note }}</div>{% endif %}
+  {% if store.shop_note and (customer or preview or guest) %}<div class="shop-note">{{ icon('truck', 15) }} {{ store.shop_note }}</div>{% endif %}
   {% for category, message in get_flashed_messages(with_categories=true) %}<div class="flash {{ category }}">{{ message }}</div>{% endfor %}
   {% block content %}{% endblock %}
 </main>
+{% if public %}<footer class="shop-foot">{{ store.store_name }}{% if store.address %} · {{ store.address }}{% endif %}{% if store.phone %} · <a href="tel:{{ store.phone }}">{{ store.phone }}</a>{% endif %}</footer>{% endif %}
 </body>
 </html>
