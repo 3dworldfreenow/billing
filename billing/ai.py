@@ -41,6 +41,19 @@ def list_models(key):
     return sorted((n for n in names if n.startswith("gemini")), reverse=True)
 
 
+def test_connection(key, model):
+    """Send a tiny request with this key and model. Returns the reply text, or raises AIError."""
+    if not key:
+        raise AIError("No API key saved.")
+    body = {"contents": [{"role": "user", "parts": [{"text": "Reply with just the word OK."}]}]}
+    data = _request(f"{API}/models/{model or DEFAULT_MODEL}:generateContent", key, body, timeout=20)
+    try:
+        parts = data["candidates"][0]["content"]["parts"]
+        return "".join(p.get("text", "") for p in parts if not p.get("thought")).strip()[:40] or "(empty reply)"
+    except (KeyError, IndexError):
+        raise AIError("Gemini answered, but with no text. Try another model.")
+
+
 def product_prompt(store_name, fields):
     facts = "\n".join(f"- {label}: {value}" for label, value in fields.items() if value)
     return f"""You write product pages for "{store_name}", a grocery and general store in India that takes orders online.

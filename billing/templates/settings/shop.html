@@ -46,7 +46,15 @@
         <button type="button" class="secondary" data-load-models="{{ url_for('settings.ai_models') }}" {{ 'disabled title="Save a key first"' if not store.gemini_api_key }}>Load models</button></div>
       <datalist id="gemini-models"></datalist></div>
   </div>
-  <div class="row" style="align-items:center"><button>Save</button>
+  {% if store.gemini_api_key %}
+  <div class="ai-status {{ 'ok' if store.gemini_status == 'OK' else ('bad' if store.gemini_status else '') }}" data-ai-status>
+    {% if store.gemini_status == 'OK' %}✓ Connected<span class="muted"> · tested {{ store.gemini_checked_at.strftime('%d %b, %I:%M %p') }}</span>
+    {% elif store.gemini_status %}✗ Not working: {{ store.gemini_status }}<span class="muted"> · tested {{ store.gemini_checked_at.strftime('%d %b, %I:%M %p') }}</span>
+    {% else %}Key saved, not tested yet.{% endif %}
+  </div>
+  {% endif %}
+  <div class="row" style="align-items:center"><button>Save &amp; test</button>
+    {% if store.gemini_api_key %}<button type="button" class="secondary" data-ai-test="{{ url_for('settings.ai_test') }}">Test connection</button>{% endif %}
     {% if store.gemini_api_key %}<label class="check"><input type="checkbox" name="remove_key" value="1"> Remove the saved key</label>{% endif %}</div>
 </form>
 {% endif %}
@@ -56,6 +64,20 @@
 (() => {
   const toggle = document.querySelector('[name=shop_public]');
   toggle?.addEventListener('change', () => { document.querySelector('[data-public-only]').hidden = !toggle.checked; });
+  const tester = document.querySelector('[data-ai-test]');
+  tester?.addEventListener('click', async () => {
+    const status = document.querySelector('[data-ai-status]');
+    tester.disabled = true; tester.textContent = 'Testing…';
+    status.className = 'ai-status'; status.textContent = 'Asking Gemini…';
+    try {
+      const res = await fetch(tester.dataset.aiTest, { method: 'POST', credentials: 'same-origin' });
+      const data = await res.json();
+      status.className = 'ai-status ' + (data.ok ? 'ok' : 'bad');
+      status.textContent = (data.ok ? '✓ ' : '✗ ') + data.message + ' · tested ' + data.checked;
+    } catch (e) {
+      status.className = 'ai-status bad'; status.textContent = '✗ Could not reach the app. Try again.';
+    } finally { tester.disabled = false; tester.textContent = 'Test connection'; }
+  });
   const button = document.querySelector('[data-load-models]');
   button?.addEventListener('click', async () => {
     button.disabled = true; button.textContent = 'Loading…';

@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import datetime
 
 from flask import (Blueprint, Response, abort, current_app, flash, g, jsonify, redirect, render_template, request,
                    send_file, url_for)
@@ -106,9 +107,39 @@ def save_ai():
         store.gemini_api_key = key
         log("settings", "Gemini key saved")
     store.gemini_model = request.form.get("gemini_model", "").strip()[:80] or None
+    if store.gemini_api_key:
+        ok, message = _test_gemini(store)
+        flash(f"AI writing settings saved. {message}", "success" if ok else "error")
+    else:
+        store.gemini_checked_at = store.gemini_status = None
+        flash("AI writing settings saved.", "success")
     db.session.commit()
-    flash("AI writing settings saved.", "success")
     return _back("shop")
+
+
+def _test_gemini(store):
+    """Try the saved key and model, remember the result, and describe it for the admin."""
+    from ..ai import DEFAULT_MODEL, AIError, test_connection
+
+    model = store.gemini_model or DEFAULT_MODEL
+    try:
+        test_connection(store.gemini_api_key, model)
+        store.gemini_status, ok = "OK", True
+        message = f"Connected: {model} is working."
+    except AIError as e:
+        store.gemini_status, ok = str(e)[:300], False
+        message = f"Connection test failed: {e}"
+    store.gemini_checked_at = datetime.now()
+    return ok, message
+
+
+@bp.route("/ai/test", methods=["POST"])
+def ai_test():
+    _admin_only()
+    store = Setting.get()
+    ok, message = _test_gemini(store)
+    db.session.commit()
+    return jsonify(ok=ok, message=message, checked=store.gemini_checked_at.strftime("%d %b, %I:%M %p"))
 
 
 @bp.route("/ai/models", methods=["POST"])

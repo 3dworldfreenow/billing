@@ -207,6 +207,10 @@ td input, td select { height: 28px; padding: 0 7px; min-width: 64px; text-align:
 .serp-title { font-size: 18px; color: #1a0dab; line-height: 1.3; margin: 2px 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .serp-desc { font-size: 13px; color: #4d5156; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
+.ai-status { margin: 10px 0 4px; padding: 7px 10px; border-radius: var(--radius-sm); background: var(--subtle); border: 1px solid var(--line); font-size: 12.5px; }
+.ai-status.ok { background: var(--green-soft); border-color: #bfe8d6; color: #047857; font-weight: 550; }
+.ai-status.bad { background: var(--red-soft); border-color: #f4c7c7; color: #b91c1c; }
+
 /* Customer shop */
 .shop-top { background: var(--surface); border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 10; }
 .shop-bar { max-width: 1180px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 14px; align-items: center; }

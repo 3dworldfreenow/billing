@@ -263,3 +263,29 @@ def test_ai_write_and_model_list(client, monkeypatch):
     assert Setting.get().gemini_api_key is None
     page = client.get("/settings/shop").data.decode()
     assert "key-123" not in page and "SEO mode" in page
+
+
+def test_gemini_connection_test_on_save_and_button(client, monkeypatch):
+    import billing.ai as ai
+
+    replies = []
+
+    def fake_request(url, key, body=None, timeout=45):
+        replies.append(url)
+        if key == "bad-key":
+            raise ai.AIError("Gemini said: API key not valid. Please pass a valid API key.")
+        return {"candidates": [{"content": {"parts": [{"text": "OK"}]}}]}
+
+    monkeypatch.setattr(ai, "_request", fake_request)
+    page = client.post("/settings/ai", data={"gemini_api_key": "bad-key", "gemini_model": "gemini-x"},
+                       follow_redirects=True).data.decode()
+    assert "Connection test failed: Gemini said: API key not valid" in page and "✗ Not working" in page
+    assert replies[-1].endswith("/models/gemini-x:generateContent")
+    page = client.post("/settings/ai", data={"gemini_api_key": "good-key", "gemini_model": ""},
+                       follow_redirects=True).data.decode()
+    assert "Connected: gemini-3.8-flash is working." in page and "✓ Connected" in page
+    assert Setting.get().gemini_status == "OK"
+    result = client.post("/settings/ai/test").get_json()
+    assert result["ok"] and result["message"] == "Connected: gemini-3.8-flash is working."
+    client.post("/settings/ai", data={"gemini_api_key": "", "remove_key": "1"})
+    assert Setting.get().gemini_status is None

@@ -85,6 +85,8 @@ class Setting(db.Model):
     # Google Gemini, to help write product descriptions and SEO text.
     gemini_api_key = db.Column(db.String(200))
     gemini_model = db.Column(db.String(80))
+    gemini_checked_at = db.Column(db.DateTime)  # last connection test
+    gemini_status = db.Column(db.String(300))  # "OK" or the error from that test
 
     @classmethod
     def get(cls):
