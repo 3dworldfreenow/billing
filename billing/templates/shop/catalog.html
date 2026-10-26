@@ -16,7 +16,7 @@
       {% if p.mrp > rate %}<span class="off">{{ ((p.mrp - rate) * 100 / p.mrp)|round|int }}% off</span>{% endif %}</div>
     <div class="info">
       <div class="pname">{{ p.name }}</div>
-      <div class="pprice"><b>₹{{ rate|inr }}</b>{% if p.mrp > rate %} <s>₹{{ p.mrp|inr }}</s>{% endif %}<span class="muted small"> / {{ p.unit }}</span></div>
+      <div class="pprice"><b>₹{{ rate|inr }}</b>{% if p.mrp > rate %} <s>₹{{ p.mrp|inr }}</s>{% endif %}{% if p.unit != 'pcs' %}<span class="muted small"> / {{ p.unit }}</span>{% endif %}</div>
       {% if p.stock <= 0 %}<span class="badge">Out of stock</span>
       {% else %}
       <form method="post" action="{{ url_for('shop.add') }}" class="addrow">

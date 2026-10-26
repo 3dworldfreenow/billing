@@ -11,7 +11,7 @@
     <div class="cart-line">
       <div class="pic sm">{% if item.product.image %}<img src="{{ url_for('shop.media', name=item.product.image) }}" alt="">{% else %}<span>{{ icon('package', 22) }}</span>{% endif %}</div>
       <div class="cart-info">
-        <div class="pname">{{ item.name }}</div><div class="small muted">₹{{ item.rate|inr }} / {{ item.product.unit }}</div>
+        <div class="pname">{{ item.name }}</div><div class="small muted">₹{{ item.rate|inr }}{% if item.product.unit != 'pcs' %} / {{ item.product.unit }}{% endif %}</div>
         <div class="cart-qty">
           <input name="qty_{{ item.id }}" type="number" min="0" step="any" value="{{ item.qty|qty }}" aria-label="Quantity of {{ item.name }}">
           <b>₹{{ item.amount|inr }}</b>
