@@ -55,14 +55,30 @@
       <form method="post" action="{{ url_for('auth.logout') }}"><button title="Log out" aria-label="Log out">{{ icon('logout') }}</button></form>
     </div>
   </aside>
+  <div class="scrim menu-toggle no-print" aria-hidden="true"></div>
+  <header class="topbar no-print">
+    <button class="menu-toggle" type="button" aria-label="Menu">{{ icon("menu", 20) }}</button>
+    <div class="brand"><span>{{ icon("cart", 14) }}</span>{{ store.store_name }}</div>
+    <a class="avatar" href="{{ url_for('auth.account') }}" title="{{ current_user.name }}">{{ current_user.name[:1]|upper }}</a>
+  </header>
   <main class="main">
-    <button class="menu-toggle secondary no-print" type="button" style="margin-bottom:.75rem">{{ icon("menu") }} Menu</button>
     {% for category, message in get_flashed_messages(with_categories=true) %}
       <div class="flash {{ category }}">{{ message }}</div>
     {% endfor %}
     {% block content %}{% endblock %}
     {% block scripts %}{% endblock %}
   </main>
+  {# Phone: the most used pages at the bottom; everything else is under "More". #}
+  {% set tabs = [] %}
+  {% if can('reports') %}{% set _ = tabs.append(('reports.dashboard', 'Home', 'chart', ep.startswith('reports.'))) %}{% endif %}
+  {% if can('sales') %}{% set _ = tabs.append(('sales.pos', 'Billing', 'billing', ep.startswith('sales.') and ep != 'sales.sales_list')) %}
+    {% set _ = tabs.append(('sales.sales_list', 'Bills', 'bills', ep == 'sales.sales_list')) %}{% endif %}
+  {% if can('products') %}{% set _ = tabs.append(('products.index', 'Products', 'tag', ep.startswith('products.'))) %}{% endif %}
+  {% if can('orders') and tabs|length < 4 %}{% set _ = tabs.append(('orders.index', 'Orders', 'truck', ep.startswith('orders.'))) %}{% endif %}
+  <nav class="tabbar no-print" aria-label="Quick menu">
+    {% for endpoint, label, name, active in tabs[:4] %}<a href="{{ url_for(endpoint) }}" class="{{ 'active' if active }}">{{ icon(name, 20) }}<span>{{ label }}</span></a>{% endfor %}
+    <button class="menu-toggle" type="button">{{ icon('menu', 20) }}<span>More</span></button>
+  </nav>
 </div>
 <div id="progress" aria-hidden="true"></div>
 {% else %}

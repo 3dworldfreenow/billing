@@ -65,6 +65,8 @@
       $('.app .main').replaceWith(main);
       const nav = doc.querySelector('.sidebar nav');
       if (nav) $('.sidebar nav').replaceWith(nav);
+      const tabbar = doc.querySelector('.tabbar');
+      if (tabbar && $('.tabbar')) $('.tabbar').replaceWith(tabbar);
       $('.sidebar').classList.remove('open');
       if (push && res.url !== location.href) history.pushState({ app: true }, '', res.url);
       runScripts(main);
@@ -195,7 +197,7 @@
       if (!res.ok || mine !== seq) return;
       const doc = new DOMParser().parseFromString(await res.text(), 'text/html');
       const fresh = doc.querySelector(form.dataset.live);
-      if (fresh) $(form.dataset.live).replaceWith(fresh);
+      if (fresh) { $(form.dataset.live).replaceWith(fresh); stackTables(fresh); }
       history.replaceState(history.state, '', url);
     }, 250);
     form.addEventListener('input', refresh);
@@ -231,8 +233,35 @@
     });
   }
 
+  // Phones: wide tables become one card per row. Each cell gets its column name as a label
+  // (CSS shows it only on small screens); the first real column is the card's title.
+  function stackTables(root) {
+    root.querySelectorAll('table:not(.no-stack)').forEach((table) => {
+      let head = table.tHead ? table.tHead.rows[0] : null;
+      if (!head && table.rows.length && [...table.rows[0].cells].every((c) => c.tagName === 'TH')) head = table.rows[0];
+      if (!head || head.cells.length < 4) return;
+      head.classList.add('stack-head');
+      const labels = [];
+      [...head.cells].forEach((th) => { for (let k = 0; k < (th.colSpan || 1); k++) labels.push(th.textContent.trim()); });
+      table.classList.add('stack');
+      [...table.tBodies, table.tFoot].filter(Boolean).forEach((part) => [...part.rows].forEach((tr) => {
+        if (tr === head) return;
+        let col = 0, titled = false;
+        [...tr.cells].forEach((td) => {
+          const label = labels[col];
+          if ((td.colSpan || 1) === 1 && label !== undefined) {
+            if (!td.hasAttribute('data-label')) td.setAttribute('data-label', label);
+            if (!titled && label !== '#' && label !== '') { td.classList.add('cell-title'); titled = true; }
+          }
+          col += td.colSpan || 1;
+        });
+      }));
+    });
+  }
+
   // ---- Per-page setup: runs on load and after every background update ------------------------
   function init(root) {
+    stackTables(root);
     root.querySelectorAll('[data-autocomplete]').forEach(autocomplete);
     root.querySelectorAll('form[data-live]').forEach(liveSearch);
     root.querySelectorAll('[data-camera]').forEach(camera);
