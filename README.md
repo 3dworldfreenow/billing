@@ -165,6 +165,20 @@ then `nginx -t && systemctl reload nginx` and `certbot --nginx -d billing.exampl
 then `apachectl configtest && systemctl reload httpd` and `certbot --apache -d billing.example.com` (certbot copies
 these lines into the https site it creates). Run the app as in step 4.
 
+### More stores on the same server (one subdomain each)
+
+Each store gets its own database, photos, backups and logins; all stores share one copy of the code. Point the new
+subdomain's DNS (an A record) to the server, then from the app folder run:
+
+```bash
+sudo bash new_store.sh shop2.example.com
+```
+
+It asks for the store name and the admin login, creates the store, starts it as a service on the next free port,
+adds the subdomain to your Apache or nginx, and gets the https certificate with certbot. Data lives in
+`/var/lib/billing-stores/<domain>`. After updating the code: `systemctl restart 'billing*'` restarts every store.
+Keep the app folder where it is: the services point to it.
+
 ## Run on the shop PC
 
 - **Windows:** install Python 3.12 from python.org (tick "Add Python to PATH"), then double-click `run_windows.bat`.

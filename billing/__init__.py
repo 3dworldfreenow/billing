@@ -53,7 +53,11 @@ def _instance_secret(folder):
 
 
 def create_app(config=None):
-    app = Flask(__name__, instance_relative_config=True)
+    # INSTANCE_DIR: this store's own data folder (database, photos, backups), so one copy of
+    # the code can run several stores side by side (see new_store.sh).
+    instance = os.environ.get("INSTANCE_DIR")
+    app = Flask(__name__, instance_relative_config=True,
+                instance_path=os.path.abspath(instance) if instance else None)
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev"),
         SQLALCHEMY_DATABASE_URI=os.environ.get(
